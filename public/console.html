@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Copilot · Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Bench-instrument console for the Ohm's law lab. Reads the same /api/state as index.html
+     and hosts the same four voice tools. SDSU scarlet is chrome only; data colors stay semantic. */
+  :root {
+    --bg: #0e1013; --surface: #15181d; --surface-2: #1b1f25;
+    --line: rgba(255,255,255,.08); --line-strong: rgba(255,255,255,.16);
+    --text: #edebe6; --muted: #8b9099; --faint: #7b818b;
+    --accent: #4fd1e6; --accent-dim: rgba(79,209,230,.14);
+    --ok: #3dcb7a; --ok-dim: rgba(61,203,122,.14);
+    --warn: #f2b134; --warn-dim: rgba(242,177,52,.14);
+    --crit: #f0553e; --crit-dim: rgba(240,85,62,.16);
+    --brand: #a6192e; --brand-ink: #e8606f;
+    --r: 10px; --r-lg: 14px;
+    --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    --serif: Fraunces, Georgia, "Times New Roman", serif;
+    --fs-readout: 64px; --fs-readout-unit: 26px; --fs-next: 26px; --fs-h: 20px; --fs-body: 15px; --fs-label: 11px;
+    --sidebar: 220px; --timeline: 320px;
+  }
+  @media (max-width: 1180px) {
+    :root { --fs-readout: 46px; --fs-readout-unit: 20px; --fs-next: 21px; --fs-h: 18px; --fs-body: 14px; --sidebar: 64px; --timeline: 260px; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: var(--fs-body)/1.45 var(--sans); -webkit-font-smoothing: antialiased; overflow: hidden; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  a { color: var(--accent); }
+  .label { font: 500 var(--fs-label)/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--text); font-weight: 500; white-space: nowrap; text-decoration: none; }
+  .pill:hover { border-color: var(--text); }
+  .pill.primary { background: var(--brand); color: #fff; border-color: var(--brand); } .pill.primary:hover { background: #bf1f36; border-color: #bf1f36; }
+  .pill.danger { color: var(--crit); border-color: rgba(240,85,62,.5); } .pill.danger:hover { background: var(--crit-dim); }
+  .pill.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+  .pill:disabled { opacity: .5; cursor: default; }
+
+  .app { display: grid; grid-template-columns: var(--sidebar) 1fr; height: 100vh; }
+  .side { border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 18px 12px; gap: 6px; min-width: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 6px 10px 18px; }
+  .brand .mark { width: 24px; height: 24px; border-radius: 6px; background: var(--brand); flex: none; box-shadow: inset 0 0 0 7px var(--bg), inset 0 0 0 9px var(--brand); }
+  .brand .name { font: italic 400 20px/1 var(--serif); letter-spacing: -.01em; display: block; }
+  .brand .sub { display: block; margin-top: 4px; font: 600 11px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--brand-ink); }
+  .nav { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--r); color: var(--muted); font-weight: 500; text-decoration: none; }
+  .nav svg { width: 18px; height: 18px; flex: none; }
+  .nav:hover { color: var(--text); background: var(--surface); }
+  .nav.active { color: var(--text); background: var(--surface-2); box-shadow: inset 3px 0 0 var(--brand); }
+  .nav .dot { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--brand-ink); }
+  .sidevoice { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+  .sidevoice .state { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px; }
+  .sidevoice .ind { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); display: inline-block; }
+  @media (max-width: 1180px) { .side .txt, .sidevoice .label, .sidevoice .state .t { display: none; } .nav { justify-content: center; } .nav .dot { display: none; } .sidevoice .state { justify-content: center; } }
+
+  .main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr auto; min-width: 0; height: 100vh; }
+  .hdr { display: flex; align-items: center; gap: 22px; height: 60px; padding: 0 24px; border-bottom: 1px solid var(--line); }
+  .hdr h1 { margin: 0; flex: 1 1 auto; min-width: 0; font: 500 var(--fs-h)/1.2 var(--sans); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hdr h1 .sep { color: var(--faint); padding: 0 8px; }
+  .meta { display: flex; gap: 22px; flex: none; } .meta div { display: grid; gap: 3px; } .meta b { font: 500 15px var(--mono); font-variant-numeric: tabular-nums; }
+  .hdr .actions { display: flex; gap: 10px; flex: none; }
+
+  .next { margin: 18px 24px 0; padding: 18px 22px 20px 24px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--brand); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: center; transition: box-shadow .3s; }
+  .next.lit { box-shadow: 0 0 0 2px var(--brand); }
+  .next .label { color: var(--brand-ink); }
+  .next p { margin: 6px 0 0; font: 500 var(--fs-next)/1.3 var(--sans); letter-spacing: -.012em; max-width: 64ch; }
+  .next p.long { font-size: calc(var(--fs-next) * .8); max-width: 90ch; }
+  .next .cp { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+  .next .step { display: flex; gap: 5px; align-items: center; } .next .step i { width: 22px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+  .next .step i.done { background: var(--ok); } .next .step i.now { background: var(--brand); }
+
+  .readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 14px 24px 0; }
+  .ro { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 20px 18px; min-width: 0; transition: box-shadow .25s; }
+  .ro .v { margin-top: 10px; font: 500 var(--fs-readout)/1 var(--mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ro .v small { font-size: var(--fs-readout-unit); color: var(--muted); margin-left: 4px; font-weight: 400; }
+  .ro.warn .v, .ro.warn .label { color: var(--warn); } .ro.ok .v { color: var(--ok); } .ro.crit .v, .ro.crit .label { color: var(--crit); }
+  .ro.flash { box-shadow: 0 0 0 2px var(--accent); }
+  .ro .sub { margin-top: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ro.status .v { display: flex; align-items: center; gap: 10px; font-size: calc(var(--fs-readout) * .55); font-family: var(--sans); font-weight: 600; letter-spacing: 0; }
+
+  .work { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) var(--timeline); gap: 12px; margin: 12px 24px 0; min-height: 0; transition: grid-template-columns .25s; }
+  .work.tl-collapsed { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) 48px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; min-height: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .panel .ph { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12px; white-space: nowrap; } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .parts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-height: 0; overflow: auto; }
+  .part { border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 4px; align-content: start; background: var(--bg); }
+  .part.active { border-color: var(--accent); background: var(--accent-dim); }
+  .part.ok { border-color: rgba(61,203,122,.5); } .part.warn { border-color: rgba(242,177,52,.6); } .part.crit { border-color: rgba(240,85,62,.6); }
+  .part .ph b { font: 600 15px var(--sans); } .part .ph .badge { height: 22px; font-size: 10.5px; padding: 0 8px; }
+  .part svg { width: 100%; height: 20px; }
+  .part .val { font: 500 20px var(--mono); } .part .val.wait { color: var(--faint); font-size: 14px; font-family: var(--sans); }
+  .part .meta { color: var(--muted); font-size: 11px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel svg.plot { width: 100%; height: 100%; flex: 1; min-height: 0; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; font: 600 11px var(--sans); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+  .badge.ok { color: var(--ok); background: var(--ok-dim); } .badge.warn { color: var(--warn); background: var(--warn-dim); } .badge.crit { color: var(--crit); background: var(--crit-dim); } .badge.wait { color: var(--muted); background: var(--surface-2); }
+
+  .tl { overflow: hidden; }
+  .tl .list { overflow-y: auto; display: grid; gap: 2px; align-content: start; font-size: 13px; padding-right: 4px; }
+  .tl .ev { display: grid; grid-template-columns: 64px 18px 1fr; gap: 8px; padding: 7px 10px; border-radius: 6px; align-items: baseline; }
+  .tl .ev:hover { background: var(--surface-2); }
+  .tl .ev time { font-family: var(--mono); color: var(--faint); font-size: 12px; }
+  .tl .ev .ic { font-weight: 600; } .tl .ev.ok .ic { color: var(--ok); } .tl .ev.warn .ic { color: var(--warn); } .tl .ev.fix .ic { color: var(--accent); } .tl .ev.crit .ic { color: var(--crit); }
+  .tl .ev .n { font-family: var(--mono); } .tl .ev s { color: var(--faint); }
+  .tl .empty { color: var(--faint); font-size: 13px; }
+  .tl-collapsed .tl .list, .tl-collapsed .tl .ph span, .tl-collapsed .tl .empty { display: none; }
+  .tl-collapsed .tl { padding: 12px 0; align-items: center; } .tl-collapsed .tl .ph { flex-direction: column; }
+  .tl .count { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+  .foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; margin: 12px 24px 18px; }
+  .prog { display: flex; gap: 28px; align-items: center; }
+  .prog .p { display: grid; gap: 7px; min-width: 170px; }
+  .prog .bar { height: 5px; border-radius: 3px; background: var(--line-strong); overflow: hidden; } .prog .bar i { display: block; height: 100%; background: var(--brand); border-radius: 3px; transition: width .4s; }
+  .prog .n { font-family: var(--mono); font-size: 13px; color: var(--muted); } .prog .n b { font-weight: 600; color: var(--text); }
+  .daytona { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-family: var(--mono); white-space: nowrap; }
+  .daytona i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .daytona.busy i { animation: blink .8s steps(2) infinite; }
+
+  .voice { display: flex; align-items: center; gap: 14px; height: 56px; padding: 0 10px 0 16px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); min-width: 0; width: min(700px, 44vw); transition: border-color .25s; }
+  .voice .ind { width: 12px; height: 12px; border-radius: 50%; background: var(--faint); flex: none; position: relative; }
+  .voice .ind::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; }
+  .voice .st { font: 600 12px var(--sans); letter-spacing: .14em; text-transform: uppercase; width: 108px; flex: none; }
+  .voice .tx { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); transition: opacity .4s; }
+  .voice .tx .n { font-family: var(--mono); color: var(--text); }
+  .voice form { display: contents; } .voice form[hidden] { display: none; }
+  .voice input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: none; border: 0; outline: 0; } .voice input::placeholder { color: var(--faint); }
+  .voice .ctl { display: flex; gap: 4px; margin-left: auto; }
+  .voice .ctl button { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+  .voice .ctl button:hover { background: var(--surface-2); color: var(--text); } .voice .ctl button.on { color: var(--accent); background: var(--accent-dim); }
+  .voice .ctl svg { width: 18px; height: 18px; }
+  .voice[data-state="ready"] .ind { background: var(--ok); }
+  .voice[data-state="listening"] { border-color: var(--accent); } .voice[data-state="listening"] .ind { background: var(--accent); } .voice[data-state="listening"] .ind::after { border-color: var(--accent); animation: ring 1.4s ease-out infinite; } .voice[data-state="listening"] .st { color: var(--accent); }
+  .voice[data-state="speaking"] .ind { background: var(--accent); animation: blink 1s steps(2) infinite; } .voice[data-state="speaking"] .st { color: var(--accent); }
+  .voice[data-state="processing"] .ind { background: var(--accent); animation: blink .6s steps(2) infinite; }
+  .voice[data-state="recorded"] .ind { background: var(--ok); } .voice[data-state="recorded"] .st { color: var(--ok); }
+  .voice[data-state="attention"] { border-color: var(--warn); } .voice[data-state="attention"] .ind { background: var(--warn); } .voice[data-state="attention"] .st { color: var(--warn); }
+  .voice[data-state="offline"] .st { color: var(--faint); }
+  @keyframes ring { from { transform: scale(.6); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+  @keyframes blink { to { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+  .alerts { position: fixed; bottom: 96px; right: 24px; width: 440px; display: grid; gap: 10px; z-index: 20; pointer-events: none; }
+  .alert { pointer-events: auto; background: var(--surface-2); border: 1px solid var(--line-strong); border-left: 4px solid var(--muted); border-radius: var(--r-lg); padding: 14px 16px 14px 18px; box-shadow: 0 12px 40px rgba(0,0,0,.45); animation: in .18s ease-out; display: grid; gap: 10px; }
+  .alert.out { animation: out .18s ease-in forwards; }
+  .alert .t { display: flex; align-items: center; gap: 10px; font-weight: 600; } .alert .t .ic { font-size: 18px; }
+  .alert.ok { border-left-color: var(--ok); } .alert.ok .t { color: var(--ok); }
+  .alert.warn { border-left-color: var(--warn); } .alert.warn .t { color: var(--warn); }
+  .alert.crit { border-left-color: var(--crit); background: #2a1512; } .alert.crit .t { color: var(--crit); }
+  .alert .kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; } .alert .kv div { display: grid; gap: 3px; } .alert .kv b { font: 500 20px var(--mono); } .alert .kv .w { color: var(--warn); }
+  .alert .hint { color: var(--muted); font-size: 13px; line-height: 1.45; } .alert .hint b { color: var(--text); font-weight: 500; }
+  .alert .acts { display: flex; gap: 8px; }
+  @keyframes in { from { opacity: 0; transform: translateY(-8px); } } @keyframes out { to { opacity: 0; transform: translateY(-8px); } }
+
+  .done { display: none; height: 100vh; overflow: auto; padding: 48px 56px; }
+  .done.show { display: block; }
+  .done h2 { margin: 14px 0 0; font: 500 64px/1.05 var(--serif); letter-spacing: -.02em; } .done h2 em { font-style: italic; font-weight: 400; color: var(--ok); }
+  .done .sub { color: var(--muted); margin-top: 10px; font-size: 17px; }
+  .done .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 36px; max-width: 980px; }
+  .done .rows { display: grid; gap: 8px; margin-top: 28px; max-width: 980px; }
+  .done .j { display: grid; grid-template-columns: 1fr 180px 180px 150px; align-items: center; gap: 12px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+  .done .j .n { font-family: var(--mono); color: var(--muted); font-size: 14px; }
+  .done .acts { display: flex; gap: 10px; margin-top: 36px; flex-wrap: wrap; }
+  @media (max-width: 1180px) { .done { padding: 32px; } .done h2 { font-size: 48px; } .done .j { grid-template-columns: 1fr 130px 130px 130px; }
+    .hdr { gap: 14px; padding: 0 16px; } .meta { gap: 14px; } .meta div:first-child { display: none; } .hdr .pill { height: 32px; padding: 0 12px; font-size: 13px; }
+    .next, .readouts, .work { margin-left: 16px; margin-right: 16px; } .foot { margin: 12px 16px 16px; } .ro { padding: 14px 16px 16px; } .parts { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mark"></span><span class="txt"><span class="name">Lab Copilot</span><span class="sub">SDSU Engineering</span></span></div>
+    <a class="nav" href="/console.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span class="txt">Home</span></a>
+    <a class="nav active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="txt">Active lab</span><span class="dot"></span></a>
+    <a class="nav" href="#" id="navReport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg><span class="txt">Report</span></a>
+    <div class="sidevoice"><span class="label">Voice agent</span><span class="state"><span class="ind" id="sideInd"></span><span class="t" id="sideState">Offline</span></span></div>
+  </aside>
+
+  <section class="main" id="console">
+    <header class="hdr">
+      <h1 id="title">Ohm's law lab<span class="sep">/</span>5 V supply</h1>
+      <div class="meta">
+        <div><span class="label">Run</span><b id="runId">—</b></div>
+        <div><span class="label">Elapsed</span><b id="timer">00:00</b></div>
+        <div><span class="label">Step</span><b id="stepNo">—</b></div>
+        <div><span class="label">Resistor</span><b id="part">—</b></div>
+      </div>
+      <div class="actions">
+        <button class="pill primary" id="connectBtn">Start session</button>
+        <button class="pill" id="resetBtn" title="Clear all readings">Reset</button>
+      </div>
+    </header>
+
+    <section class="next" id="next" aria-live="polite">
+      <div><span class="label" id="nextLabel">Next</span><p id="nextText">Loading…</p><div class="cp" id="nextCp" hidden></div></div>
+      <div class="step" id="stepBar"></div>
+    </section>
+
+    <section class="readouts">
+      <div class="ro" id="roV"><span class="label">Voltage</span><div class="v"><span>—</span><small>V</small></div><div class="sub">Across the resistor</div></div>
+      <div class="ro" id="roI"><span class="label">Current</span><div class="v"><span>—</span><small>mA</small></div><div class="sub">Through the resistor</div></div>
+      <div class="ro" id="roR"><span class="label">Measured</span><div class="v"><span>—</span><small>Ω</small></div><div class="sub">R = V / I</div></div>
+      <div class="ro" id="roE"><span class="label">Error</span><div class="v"><span>—</span><small>%</small></div><div class="sub">Tolerance ±5%</div></div>
+      <div class="ro status" id="roS"><span class="label">Status</span><div class="v"><span class="ic">○</span><span>READY</span></div><div class="sub">No reading yet</div></div>
+    </section>
+
+    <section class="work" id="work">
+      <div class="panel">
+        <div class="ph"><span class="label">Resistors</span><span class="legend"><span><i style="background:var(--accent)"></i>Latest</span><span><i style="background:var(--ok)"></i>Pass</span><span><i style="background:var(--warn)"></i>Check</span></span></div>
+        <div class="parts" id="parts"></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><span class="label">Voltage vs current</span><span class="daytona" id="daytona"><i></i><span>Analysis runs in a Daytona sandbox</span></span></div>
+        <svg class="plot" id="plot" viewBox="0 0 560 300" aria-label="Voltage versus current plot"></svg>
+      </div>
+      <div class="panel tl">
+        <div class="ph"><span class="label">Run timeline</span><button class="pill sm" id="tlToggle" aria-label="Collapse timeline"><span class="count" id="tlCount">0</span></button></div>
+        <div class="list" id="tlList"><div class="empty">Readings, corrections and steps show up here.</div></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <div class="prog">
+        <div class="p"><span class="label">Resistors</span><div class="bar"><i id="pR" style="width:0%"></i></div><span class="n"><b id="pRn">0</b> / 4 measured</span></div>
+        <div class="p"><span class="label">Steps</span><div class="bar"><i id="pS" style="width:0%"></i></div><span class="n"><b id="pSn">0</b> / <span id="pSt">7</span></span></div>
+      </div>
+      <div class="voice" id="voice" data-state="offline" aria-live="polite">
+        <span class="ind"></span>
+        <span class="st" id="vState">Offline</span>
+        <span class="tx" id="vText">Start a session, then say "walk me through it" or read a resistor.</span>
+        <form id="typeForm" hidden><input id="typeBox" placeholder='Type instead, e.g. "resistor 1, 4.98 volts, 22.4 milliamps"' autocomplete="off"></form>
+        <div class="ctl">
+          <button id="typeBtn" title="Type a message (T)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg></button>
+          <button id="muteBtn" title="Mute (M)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+          <button id="repeatBtn" title="Repeat the step (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 4v5h-5M20 12a8 8 0 0 1-14 5l-2-2M4 20v-5h5"/></svg></button>
+        </div>
+      </div>
+    </footer>
+  </section>
+
+  <section class="done" id="done">
+    <span class="label">Ohm's law lab · <span id="doneRun"></span></span>
+    <h2>Lab <em>complete</em> ✓</h2>
+    <div class="sub" id="doneSub"></div>
+    <div class="stats">
+      <div class="ro"><span class="label">Measured</span><div class="v"><span id="dM">0</span></div></div>
+      <div class="ro ok"><span class="label">Within tolerance</span><div class="v"><span id="dOk">0</span></div></div>
+      <div class="ro warn"><span class="label">Issues caught</span><div class="v"><span id="dBad">0</span></div></div>
+      <div class="ro"><span class="label">Avg error</span><div class="v"><span id="dErr">—</span><small>%</small></div></div>
+    </div>
+    <div class="rows" id="doneRows"></div>
+    <div class="acts" id="doneActs"></div>
+  </section>
+</div>
+<div class="alerts" id="alerts"></div>
+
+<script src="/vendor/elevenlabs.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const BAND = { black: '#1b1b1b', brown: '#7a4a24', red: '#d0312d', orange: '#f08a24', yellow: '#f2d024', green: '#2e9b4f', blue: '#2f6fd6', violet: '#8a4fd1', gray: '#8e8e8e', white: '#f2f2f2', gold: '#c9a43a' };
+const fmtOhms = (r) => r == null ? '—' : r >= 1000 ? `${+(r / 1000).toPrecision(3)}k` : `${+r.toPrecision(3)}`;
+const fmtPct = (e) => e == null ? '—' : `${e > 0 ? '+' : ''}${e}`;
+const clock = () => new Date().toTimeString().slice(0, 8);
+const fileLabel = (f) => f.endsWith('-report.md') ? 'Open lab report' : f.endsWith('.csv') ? 'Data (CSV)' : 'Chart (PNG)';
+const fileHref = (f) => f.endsWith('-report.md') ? `/report/${f}` : `/results/${f}`;
+const sevOf = (x) => x.volts == null ? 'wait' : !x.flag ? 'ok' : /open|short|power/.test(x.flag) ? 'crit' : 'warn';
+const sevWord = { wait: 'WAITING', ok: 'PASS', warn: 'CHECK', crit: 'FAULT' }, sevIcon = { wait: '○', ok: '✓', warn: '⚠', crit: '⛔' };
+
+let state = null, prev = null, latest = null, events = [], started = Date.now();
+const RUN_ID = `OHM-${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}`;
+$('runId').textContent = RUN_ID;
+
+// ---------- Timeline (derived from state changes, so it works even when another tab hosts the voice) ----------
+function addEvent(k, html) { events.push({ t: clock(), k, html }); renderTimeline(); }
+function renderTimeline() {
+  const ic = { ok: '✓', warn: '⚠', crit: '⛔', fix: '↻', step: '→' };
+  $('tlList').innerHTML = events.length ? events.map((e) => `<div class="ev ${e.k}"><time>${e.t}</time><span class="ic">${ic[e.k] || '•'}</span><span>${e.html}</span></div>`).join('')
+    : '<div class="empty">Readings, corrections and steps show up here.</div>';
+  $('tlCount').textContent = events.length; $('tlList').scrollTop = 1e6;
+}
+function diff(s) {
+  if (!prev) return;
+  const a = s.analysis, pa = prev.analysis;
+  const byLabel = (st) => Object.fromEntries((st.readings || []).map((r) => [r.label, r]));
+  const now = byLabel(s), was = byLabel(prev);
+  for (const l of Object.keys(now)) {
+    const r = now[l], o = was[l];
+    if (!o || o.volts !== r.volts || o.milliamps !== r.milliamps) {
+      const x = a?.parts.find((p) => p.label === l); const sev = x ? sevOf(x) : 'ok';
+      latest = l;
+      const val = x?.measured != null ? `${fmtOhms(x.measured)} Ω` : `${r.milliamps} mA`;
+      addEvent(o ? 'fix' : sev, `${o ? 'Re-read ' : ''}R${l} <span class="n">${r.volts} V · ${r.milliamps} mA → ${val}</span>${x?.flag ? ` · ${x.flag}` : ''}`);
+      if (x) notify(x);
+    }
+  }
+  for (const l of Object.keys(was)) if (!now[l]) addEvent('fix', `Removed <s>R${l} ${was[l].volts} V · ${was[l].milliamps} mA</s>`);
+  if (s.guide?.step !== prev.guide?.step && s.guide?.step != null) addEvent('step', `Step ${s.guide.step + 1}: ${s.guide.titles[s.guide.step]}`);
+  if ((s.files?.length || 0) > (prev.files?.length || 0)) { addEvent('ok', `Lab saved: ${s.files.length} files`); showDone(s); }
+}
+
+// ---------- Alerts ----------
+function alert_(kind, title, body = '', actions = [], ttl = 0) {
+  document.querySelectorAll('.alert').forEach(dismiss);
+  const el = document.createElement('div'); el.className = 'alert ' + kind;
+  el.innerHTML = `<div class="t"><span class="ic">${sevIcon[kind] || '✓'}</span><span>${title}</span></div>${body}` +
+    (actions.length ? `<div class="acts">${actions.map((x, i) => `<button class="pill sm ${i === 0 ? 'primary' : ''}" data-i="${i}">${x.label}</button>`).join('')}</div>` : '');
+  el.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => { dismiss(el); actions[b.dataset.i].run?.(); });
+  $('alerts').prepend(el); if (ttl) setTimeout(() => dismiss(el), ttl);
+}
+function dismiss(el) { if (!el.isConnected) return; el.classList.add('out'); setTimeout(() => el.remove(), 200); }
+function notify(x) {
+  const sev = sevOf(x);
+  if (sev === 'ok') { alert_('ok', `R${x.label} checks out`, `<div class="hint"><b>${fmtOhms(x.measured)} Ω</b> measured, ${fmtOhms(x.nominal)} Ω expected (${fmtPct(x.error_pct)}%).</div>`, [], 3000); setVoice('recorded', `<span class="n">R${x.label} → ${fmtOhms(x.measured)} Ω</span> · pass`, 4000); return; }
+  const title = x.flag === 'open circuit' ? `R${x.label}: open circuit` : x.flag === 'short circuit' ? `R${x.label}: short circuit` : x.flag === 'over power rating' ? `R${x.label} is running hot` : `R${x.label}: wrong part`;
+  alert_(sev, title,
+    `<div class="kv"><div><span class="label">Expected</span><b>${fmtOhms(x.nominal)} Ω</b></div><div><span class="label">Measured</span><b>${x.measured != null ? fmtOhms(x.measured) + ' Ω' : '—'}</b></div><div><span class="label">Error</span><b class="w">${fmtPct(x.error_pct)}%</b></div></div>` +
+    `<div class="hint">${x.advice || ''}</div>`,
+    [{ label: 'Re-read it', run: () => say(`I'll read resistor ${x.label} again.`) }, { label: 'Continue' }], 12000);
+  setVoice('attention', `<span class="n">R${x.label}</span> · ${x.flag}`);
+}
+
+// ---------- Render ----------
+function setRo(id, val, cls = '', sub) { const el = $(id); el.querySelector(id === 'roS' ? '.v span:last-child' : '.v span').textContent = val; el.className = 'ro ' + (id === 'roS' ? 'status ' : '') + cls; if (sub != null) el.querySelector('.sub').textContent = sub; }
+function render(s) {
+  diff(s); prev = state = s;
+  const a = s.analysis, g = s.guide, parts = a?.parts || [];
+  const measured = parts.filter((p) => p.volts != null);
+  if (!latest && measured.length) latest = measured[measured.length - 1].label;
+  const x = parts.find((p) => p.label === latest && p.volts != null);
+  // readouts
+  if (x) {
+    const sev = sevOf(x);
+    setRo('roV', x.volts.toFixed(2)); setRo('roI', String(x.milliamps));
+    setRo('roR', x.measured != null ? fmtOhms(x.measured) : '—', sev === 'ok' ? 'ok' : sev, `Expected ${fmtOhms(x.nominal)} Ω · ${x.bands}`);
+    setRo('roE', fmtPct(x.error_pct), x.error_pct == null ? '' : Math.abs(x.error_pct) <= 5 ? 'ok' : 'warn');
+    setRo('roS', sevWord[sev], sev, x.flag || 'Within ±5%'); $('roS').querySelector('.ic').textContent = sevIcon[sev];
+    $('part').textContent = `R${x.label}`;
+    ['roV', 'roI', 'roR', 'roE', 'roS'].forEach((id) => { $(id).classList.add('flash'); setTimeout(() => $(id).classList.remove('flash'), 600); });
+  } else { $('part').textContent = '—'; }
+  // next
+  const unmeasured = parts.find((p) => p.volts == null);
+  const bad = parts.find((p) => p.volts != null && p.flag);
+  const cp = $('nextCp'); cp.hidden = true;
+  if (s.files?.length) { $('nextLabel').textContent = 'Done'; $('nextText').textContent = 'Lab saved. Open the report, or say "reset" to start a new run.'; }
+  else if (g?.step != null && !g.data_collection) { $('nextLabel').textContent = `Step ${g.step + 1} of ${g.titles.length} · ${g.titles[g.step]}`; $('nextText').textContent = g.instruction; if (g.checkpoint) { cp.hidden = false; cp.textContent = `Before moving on: ${g.checkpoint}`; } }
+  else if (bad && !unmeasured) { $('nextLabel').textContent = 'Fix first'; $('nextText').textContent = `R${bad.label}: ${bad.advice}`; }
+  else if (unmeasured) { $('nextLabel').textContent = 'Next reading'; $('nextText').textContent = `Read resistor ${unmeasured.label} to me: the volts across it and the milliamps through it.`; cp.hidden = false; cp.textContent = `Expected about ${fmtOhms(unmeasured.nominal)} Ω (${unmeasured.bands}).`; }
+  else { $('nextLabel').textContent = 'All four measured'; $('nextText').textContent = 'Say "wrap it up" to save the lab results.'; }
+  $('nextText').classList.toggle('long', $('nextText').textContent.length > 110);
+  $('next').classList.remove('lit'); void $('next').offsetWidth; $('next').classList.add('lit'); setTimeout(() => $('next').classList.remove('lit'), 700);
+  // steps + progress
+  const n = g?.titles?.length || 7, st = g?.step;
+  $('stepBar').innerHTML = Array.from({ length: n }, (_, i) => `<i class="${st == null ? '' : i < st ? 'done' : i === st ? 'now' : ''}"></i>`).join('');
+  $('stepNo').textContent = st == null ? '—' : `${st + 1} / ${n}`;
+  $('pS').style.width = (st == null ? 0 : (st + 1) / n * 100) + '%'; $('pSn').textContent = st == null ? 0 : st + 1; $('pSt').textContent = n;
+  $('pR').style.width = measured.length / 4 * 100 + '%'; $('pRn').textContent = measured.length;
+  if (a?.ms) $('daytona').lastElementChild.textContent = `Analyzed in a Daytona sandbox · ${(a.ms / 1000).toFixed(1)} s`;
+  // parts
+  $('parts').innerHTML = parts.map((p) => { const sev = sevOf(p); return `<div class="part ${sev === 'wait' ? '' : sev} ${p.label === latest ? 'active' : ''}">
+    <div class="ph"><b>R${p.label}</b><span class="badge ${sev}">${sevIcon[sev]} ${p.volts == null ? 'waiting' : (p.flag || 'pass')}</span></div>
+    ${resistorSvg(p.bands)}
+    <div class="val ${p.volts == null ? 'wait' : ''}">${p.volts == null ? 'not measured' : p.measured != null ? fmtOhms(p.measured) + ' Ω' : p.milliamps + ' mA'}</div>
+    <div class="meta">expected ${fmtOhms(p.nominal)} Ω${p.volts != null ? ` · ${p.volts.toFixed(2)} V · ${p.milliamps} mA` : ''}</div></div>`; }).join('');
+  renderPlot(parts);
+  $('navReport').href = s.files?.find((f) => f.endsWith('.md')) ? fileHref(s.files.find((f) => f.endsWith('.md'))) : '#';
+  if (s.files?.length && !$('done').classList.contains('show') && events.some((e) => /Lab saved/.test(e.html))) showDone(s);
+}
+function resistorSvg(bands) {
+  const cols = String(bands || '').split(',').map((c) => BAND[c.trim()] || '#555');
+  return `<svg viewBox="0 0 160 34" aria-hidden="true"><line x1="0" y1="17" x2="160" y2="17" stroke="#8b9893" stroke-width="2.5" stroke-linecap="round"/><rect x="36" y="4" width="88" height="26" rx="11" fill="#d9c7a3"/>` +
+    cols.slice(0, 3).map((c, i) => `<rect x="${50 + i * 13}" y="4" width="7" height="26" fill="${c}"/>`).join('') + `<rect x="104" y="4" width="7" height="26" fill="${BAND.gold}"/></svg>`;
+}
+function renderPlot(parts) {
+  const W = 560, H = 300, L = 46, R = 16, T = 14, B = 36, IM = 30, VM = 6;
+  const sx = (i) => L + i / IM * (W - L - R), sy = (v) => H - B - v / VM * (H - T - B);
+  let g = '';
+  for (let i = 0; i <= IM; i += 5) g += `<line x1="${sx(i)}" y1="${T}" x2="${sx(i)}" y2="${H - B}" stroke="var(--line)"/><text x="${sx(i)}" y="${H - B + 18}" text-anchor="middle" font-size="11" font-family="var(--mono)" fill="var(--faint)">${i}</text>`;
+  for (let v = 0; v <= VM; v += 1) g += `<line x1="${L}" y1="${sy(v)}" x2="${W - R}" y2="${sy(v)}" stroke="var(--line)"/><text x="${L - 8}" y="${sy(v) + 4}" text-anchor="end" font-size="11" font-family="var(--mono)" fill="var(--faint)">${v}</text>`;
+  g += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle" font-size="11" font-family="var(--sans)" fill="var(--muted)" letter-spacing="1.5">CURRENT (mA)</text>`;
+  g += `<text transform="translate(12 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" font-size="11" font-family="var(--sans)" fill="var(--muted)" letter-spacing="1.5">VOLTAGE (V)</text>`;
+  for (const p of parts) { // nominal line V = I * R, I in mA
+    const iMax = Math.min(IM, VM / p.nominal * 1000);
+    g += `<line x1="${sx(0)}" y1="${sy(0)}" x2="${sx(iMax)}" y2="${sy(iMax * p.nominal / 1000)}" stroke="var(--faint)" stroke-dasharray="4 4"/>`;
+    const lx = Math.min(iMax, IM * .92), ly = lx * p.nominal / 1000;
+    g += `<text x="${sx(lx) + 4}" y="${sy(ly) - 4}" font-size="11" font-family="var(--mono)" fill="var(--faint)">${fmtOhms(p.nominal)}Ω</text>`;
+  }
+  for (const p of parts) { if (p.volts == null) continue; const sev = sevOf(p), act = p.label === latest;
+    g += `<circle cx="${sx(Math.min(IM, p.milliamps))}" cy="${sy(Math.min(VM, p.volts))}" r="${act ? 7 : 5}" fill="${sev === 'ok' ? 'var(--ok)' : sev === 'warn' ? 'var(--warn)' : 'var(--crit)'}" stroke="${act ? 'var(--text)' : 'none'}" stroke-width="1.5"/>`;
+    g += `<text x="${sx(Math.min(IM, p.milliamps)) + 10}" y="${sy(Math.min(VM, p.volts)) + 14}" font-size="12" font-family="var(--mono)" fill="${sev === 'ok' ? 'var(--ok)' : sev === 'warn' ? 'var(--warn)' : 'var(--crit)'}">R${p.label}</text>`; }
+  $('plot').innerHTML = g;
+}
+function showDone(s) {
+  const a = s.analysis; if (!a) return;
+  $('doneRun').textContent = RUN_ID; $('doneSub').textContent = `${a.n_measured} of ${a.n_parts} resistors measured · ${a.n_ok} within tolerance · ${$('timer').textContent} elapsed`;
+  $('dM').textContent = a.n_measured; $('dOk').textContent = a.n_ok; $('dBad').textContent = a.parts.filter((p) => p.flag).length; $('dErr').textContent = a.avg_error_pct ?? '—';
+  $('doneRows').innerHTML = a.parts.map((p) => { const sev = sevOf(p); return `<div class="j"><span>R${p.label} · ${p.bands}</span><span class="n">${p.volts != null ? `${p.volts.toFixed(2)} V · ${p.milliamps} mA` : '—'}</span><span class="n">${p.measured != null ? fmtOhms(p.measured) + ' Ω' : '—'} ${p.error_pct != null ? `(${fmtPct(p.error_pct)}%)` : ''}</span><span class="badge ${sev}">${sevIcon[sev]} ${sevWord[sev]}</span></div>`; }).join('');
+  $('doneActs').innerHTML = (s.files || []).map((f, i) => `<a class="pill ${i ? '' : 'primary'}" href="${fileHref(f)}" target="_blank">${fileLabel(f)}</a>`).join('') + `<button class="pill" id="backBtn">Back to console</button>`;
+  $('backBtn').onclick = () => { $('done').classList.remove('show'); $('console').style.display = ''; };
+  $('console').style.display = 'none'; $('done').classList.add('show');
+}
+
+// ---------- Voice (same tools and endpoints as index.html) ----------
+let conversation = null, muted = false, clearTx;
+function setVoice(st, html, ttl = 0) {
+  const names = { ready: 'Ready', listening: 'Listening', speaking: 'Speaking', processing: 'Working', recorded: 'Recorded', attention: 'Attention', offline: 'Offline' };
+  $('voice').dataset.state = st; $('vState').textContent = names[st]; $('sideState').textContent = names[st];
+  $('sideInd').style.background = { listening: 'var(--accent)', speaking: 'var(--accent)', processing: 'var(--accent)', recorded: 'var(--ok)', ready: 'var(--ok)', attention: 'var(--warn)', offline: 'var(--faint)' }[st];
+  if (html != null) { $('vText').innerHTML = html; $('vText').style.opacity = 1; }
+  clearTimeout(clearTx); if (ttl) clearTx = setTimeout(() => { $('vText').style.opacity = .4; if (conversation) setVoice('listening'); }, ttl);
+}
+async function post(url, body) { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) }); const d = await r.json(); if (!r.ok) throw new Error(d.error || r.statusText); return d; }
+const resistorOf = (p) => String(Number((String(p.resistor ?? '').match(/\d+/) || [''])[0]));
+function tool(url) {
+  return async (params) => {
+    $('daytona').classList.add('busy'); setVoice('processing', $('vText').innerHTML);
+    try { const s = await post(url, params); if (params?.resistor) latest = resistorOf(params); render(s); return s.agent; }
+    catch (err) { setVoice('attention', `That failed: ${err.message}`); return `That failed: ${err.message}`; }
+    finally { $('daytona').classList.remove('busy'); }
+  };
+}
+const clientTools = { log_reading: tool('/api/reading'), delete_reading: tool('/api/delete'), finish_run: tool('/api/finish'), protocol_step: tool('/api/step') };
+function say(text) { if (!conversation) return; conversation.sendUserMessage(text); setVoice('processing', `“${text}”`); }
+async function start() {
+  $('connectBtn').disabled = true; setVoice('processing', 'Connecting…');
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+    const res = await fetch('/api/token'); if (!res.ok) throw new Error(await res.text());
+    conversation = await ElevenLabsClient.Conversation.startSession({
+      conversationToken: await res.text(), clientTools,
+      onConnect: () => { $('connectBtn').textContent = 'End session'; $('connectBtn').classList.replace('primary', 'danger'); setVoice('listening', 'Say "walk me through it", or read a resistor: "resistor 1, 4.98 volts, 22.4 milliamps".'); },
+      onDisconnect: (d) => { conversation = null; $('connectBtn').textContent = 'Start session'; $('connectBtn').classList.replace('danger', 'primary'); setVoice('offline', `Session ended (${d.reason}).`); },
+      onMessage: ({ role, message }) => { const m = message.replace(/\[[a-z][a-z ]{0,20}\]\s*/gi, '').trim(); if (role === 'user') setVoice('processing', `“${m}”`); else setVoice('speaking', m, 6000); },
+      onError: (m) => { console.error(m); setVoice('attention', `Error: ${m}`); },
+      onModeChange: ({ mode }) => { if (!conversation) return; if (mode === 'speaking') setVoice('speaking', $('vText').innerHTML); else if ($('voice').dataset.state === 'speaking') setVoice('listening'); },
+    });
+  } catch (err) { console.error(err); conversation = null; setVoice('offline', /denied|permission/i.test(err.message) ? 'Microphone blocked. Allow it in the address bar, then try again.' : `Could not start: ${err.message}`); }
+  finally { $('connectBtn').disabled = false; }
+}
+$('connectBtn').onclick = () => conversation ? conversation.endSession() : start();
+$('resetBtn').onclick = async () => { if (!confirm('Clear all readings and the guided step?')) return; latest = null; events = []; renderTimeline(); render(await post('/api/reset')); setVoice(conversation ? 'listening' : 'offline', 'Reset. Ready for a new run.'); };
+$('muteBtn').onclick = () => { muted = !muted; $('muteBtn').classList.toggle('on', muted); conversation?.setMicMuted?.(muted); setVoice(muted ? 'offline' : 'listening', muted ? 'Microphone muted' : 'Microphone on', 1500); };
+$('repeatBtn').onclick = () => say('Please repeat the current step.');
+$('typeBtn').onclick = () => { const f = $('typeForm'); f.hidden = !f.hidden; $('vText').hidden = !f.hidden; $('typeBtn').classList.toggle('on', !f.hidden); if (!f.hidden) $('typeBox').focus(); };
+$('typeForm').onsubmit = (e) => { e.preventDefault(); const t = $('typeBox').value.trim(); if (!t) return; if (!conversation) { setVoice('offline', 'Start a session first.'); return; } say(t); $('typeBox').value = ''; };
+document.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; if (e.key === 'm') $('muteBtn').click(); if (e.key === 'r') $('repeatBtn').click(); if (e.key === 't') $('typeBtn').click(); });
+$('tlToggle').onclick = () => { const c = $('work').classList.toggle('tl-collapsed'); $('tlToggle').setAttribute('aria-label', c ? 'Expand timeline' : 'Collapse timeline'); };
+if (innerWidth <= 1180) $('work').classList.add('tl-collapsed');
+setInterval(() => { const s = Math.floor((Date.now() - started) / 1000); $('timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }, 1000);
+
+// ---------- State: load, then poll so this page stays right even if the voice session lives in another tab ----------
+async function refresh() {
+  try {
+    const s = await (await fetch('/api/state')).json();
+    // While Daytona is still analyzing a new reading, readings and analysis disagree for under a second: wait for the next poll.
+    const settled = (s.readings || []).every((r) => s.analysis?.parts.some((p) => p.label === r.label && p.volts === r.volts && p.milliamps === r.milliamps));
+    if (settled && JSON.stringify(s) !== JSON.stringify(state)) render(s);
+  } catch (err) { console.error(err); }
+}
+(async () => { await refresh(); if (state && !state.analysis) render(await post('/api/analyze')); if (state?.readings?.length) started = Date.now() - 60e3 * state.readings.length; })();
+setInterval(refresh, 1500);
+</script>
+</body>
+</html>
