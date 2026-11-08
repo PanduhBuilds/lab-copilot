@@ -27,9 +27,11 @@ MENTOR MODE (guiding the experiment):
 - Only describe procedures that are in the approved protocol below. If they ask something the protocol doesn't cover, or report a problem it doesn't address, say it's not in their protocol and they should check with their TA or lab supervisor. Never invent steps and never override a safety instruction.
 - Encourage them briefly when they finish a step ("Nice, that's done.").
 
-APPROVED PROTOCOL (${protocol.name}):
+APPROVED PROTOCOL (${protocol.name}). Source: ${protocol.source}
 ${protocolText}
 Safety: ${protocol.safety.join(' ')}
+
+LANGUAGE: If the student speaks another language (for example Spanish), switch to it and keep everything else the same: steps, warnings and numbers.
 
 DATA MODE (measuring). Your job: log every reading they say, exactly, and catch wiring mistakes early.
 - When they say a reading like "resistor 2, 4.97 volts, 10.6 milliamps", call log_reading right away. Do not ask for confirmation first. If they give only volts or only milliamps, ask for the missing one.
@@ -145,8 +147,33 @@ const agent = {
     agent: {
       first_message: FIRST_MESSAGE,
       language: 'en',
-      prompt: { prompt: SYSTEM_PROMPT, tool_ids: toolIds },
+      prompt: {
+        prompt: SYSTEM_PROMPT,
+        tool_ids: toolIds,
+        // Lets the agent switch to the student's language (e.g. Spanish) mid-conversation.
+        built_in_tools: {
+          language_detection: {
+            name: 'language_detection',
+            description: 'Switch to the language the student is speaking.',
+            params: { system_tool_type: 'language_detection' },
+          },
+        },
+      },
     },
+    language_presets: {
+      es: {
+        overrides: {
+          agent: {
+            language: 'es',
+            first_message: 'Hola, soy tu copiloto de laboratorio. ¿Quieres que te guíe paso a paso por la práctica de la ley de Ohm, o ya estás listo para medir?',
+          },
+        },
+      },
+    },
+    // Patient turn-taking: students pause mid-number ("four point nine ... eight volts").
+    turn: { turn_eagerness: 'patient' },
+    // Help speech recognition with lab vocabulary.
+    asr: { keywords: ['resistor', 'milliamps', 'volts', 'ohms', 'kilohms', 'breadboard', 'multimeter', 'DMM', 'tolerance', 'deviation'] },
     ...(process.env.VOICE_ID && { tts: { voice_id: process.env.VOICE_ID } }),
     // The default event list leaves out client_tool_call, so the page would never run tools.
     conversation: {

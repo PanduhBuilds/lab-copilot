@@ -42,7 +42,7 @@ You speak  →  ElevenLabs agent (hears you, decides what to do)
 **Guided Lab Mentor Mode:** the procedure lives in `data/protocols/ohms-law.json` (steps, plain-language explanations, terms, safety notes, checkpoints). The server, not the AI, tracks the current step and refuses to move on until the student confirms the checkpoint. Answers stay grounded in the approved procedure. If something isn't covered, the agent says so and points the student to their TA instead of making things up. Adding another lab means adding another protocol file.
 
 **Sponsor features used:**
-- **ElevenLabs:** Agents platform with a private agent (short-lived conversation tokens), 4 client tools, the expressive voice model, and live interruption handling.
+- **ElevenLabs:** Agents platform with a private agent (short-lived conversation tokens), 4 client tools, automatic language detection (it switches to Spanish when the student does), patient turn-taking tuned for people reading numbers off a meter, lab-vocabulary speech recognition keywords, the expressive voice model, and live interruption handling.
 - **Daytona:** stateful code interpreter (Python with numpy, pandas and matplotlib) for every measurement, plus chart generation in the sandbox.
 
 ## Demo
@@ -53,6 +53,8 @@ You speak  →  ElevenLabs agent (hears you, decides what to do)
 ## Built with
 
 ElevenLabs Agents (`@elevenlabs/client`), Daytona SDK (`@daytona/sdk`), Node.js + Express, plain HTML/CSS/JS (no build step). Built with help from AI coding tools (Claude Code).
+
+**Lab procedure source:** the guided steps, safety rules and deviation formula are adapted from James M. Fiore, *Laboratory Manual for DC Electrical Circuit Analysis*, v1.4.3 (exercises 1, 3 and 4, and Appendix D), used under its Creative Commons BY-NC-SA license. The results file uses the manual's data-table layout: theoretical vs. measured current with percent deviation.
 
 ## Run it yourself
 
@@ -69,7 +71,7 @@ npm run dev            # open http://localhost:3000
 
 - **Any lab, same copilot:** drop in another procedure file (physics, chemistry, bio) to switch labs; later, upload a course's PDF handout and extract the steps.
 - **Readings straight from the meter:** connect a Bluetooth or USB multimeter so values flow in automatically, with voice for corrections and questions.
-- **Spanish and other languages,** plus an ElevenLabs knowledge base with each course's troubleshooting guide.
+- **More languages and a knowledge base:** Spanish works today; add more languages and an ElevenLabs knowledge base with each course's troubleshooting guide.
 - **First users:** students and TAs in SDSU's intro circuits lab sections. We'd measure time per lab and how many wiring mistakes get caught before the TA has to step in.
 
 ## Team

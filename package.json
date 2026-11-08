@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Hands-free voice copilot that logs plate-reader results and analyzes them in a Daytona sandbox.",
   "scripts": {
-    "dev": "node --watch-path=server.js --watch-path=lib server.js",
+    "dev": "node --watch server.js",
     "setup": "node scripts/setup-agent.js",
     "cleanup": "node scripts/cleanup.js"
   },

@@ -163,10 +163,16 @@ app.post('/api/finish', async (req, res) => {
     mkdirSync(RESULTS_DIR, { recursive: true });
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})/, '$1-');
     const base = `ohms-law-${stamp}`;
-    const rows = [['resistor', 'color_bands', 'expected_ohms', 'volts', 'milliamps', 'measured_ohms', 'error_pct', 'power_w', 'status']];
+    // Same layout as a lab report data table: theory vs measured, with percent deviation
+    // (deviation = 100 * (measured - theory) / theory, as in the Fiore lab manual).
+    const rows = [['resistor', 'color_bands', 'nominal_ohms', 'volts', 'theory_milliamps', 'measured_milliamps',
+      'current_deviation_pct', 'measured_ohms', 'resistance_deviation_pct', 'power_w', 'status']];
     for (const x of a.parts) {
-      rows.push([x.label, x.bands ?? '', x.nominal ?? '', x.volts ?? '', x.milliamps ?? '', x.measured ?? '',
-        x.error_pct ?? '', x.power_w ?? '', x.volts == null ? 'not measured' : (x.flag ?? 'ok')]);
+      const theory = x.volts != null && x.nominal ? (x.volts / x.nominal) * 1000 : null;
+      const curDev = theory && x.milliamps != null ? (100 * (x.milliamps - theory)) / theory : null;
+      rows.push([x.label, x.bands ?? '', x.nominal ?? '', x.volts ?? '', theory != null ? theory.toFixed(3) : '',
+        x.milliamps ?? '', curDev != null ? curDev.toFixed(1) : '', x.measured ?? '', x.error_pct ?? '',
+        x.power_w ?? '', x.volts == null ? 'not measured' : (x.flag ?? 'ok')]);
     }
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n') + '\n';
     writeFileSync(new URL(`${base}.csv`, RESULTS_DIR), csv);

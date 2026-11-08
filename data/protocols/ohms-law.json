@@ -1,61 +1,63 @@
 {
   "id": "ohms-law",
   "name": "Ohm's law lab",
-  "summary": "You'll measure the voltage across and the current through four resistors, then check Ohm's law: resistance equals voltage divided by current. If a measured resistance is far from what the color bands say, something is wired wrong or the wrong part is in the board.",
-  "source": "Intro circuits teaching-lab procedure (demo version). Follow your own lab's approved handout if it differs.",
+  "summary": "Ohm's law says voltage equals current times resistance: V = I × R. You'll measure the voltage across and the current through four resistors, then compare each with its nominal (color-code) value. The difference is the deviation: 100 × (measured − nominal) / nominal. A big deviation means the wrong part or a wiring mistake.",
+  "source": "Adapted from James M. Fiore, Laboratory Manual for DC Electrical Circuit Analysis, v1.4.3 (exercises 1, 3 and 4, and Appendix D), licensed CC BY-NC-SA. Follow your own course's handout if it differs.",
   "safety": [
-    "Turn the power supply output OFF whenever you change wiring.",
-    "Never connect the multimeter in current (mA) mode directly across the supply: it blows the meter's fuse.",
-    "If a resistor gets hot or smells, turn the output off right away and tell your TA."
+    "No food or drink at the bench: liquids are conductive.",
+    "Set the power supply to zero volts, output off, before you build or change the circuit.",
+    "Never connect the DMM in current mode directly across the supply: it blows the meter's fuse.",
+    "If a resistor gets hot or smells, turn the output off right away and tell your TA.",
+    "When you finish, leave the bench secure: sources at zero and all equipment off."
   ],
   "steps": [
     {
       "title": "Get set up",
-      "instruction": "Get a breadboard, the bench power supply, a digital multimeter with red and black leads, four jumper wires, and the four resistors: 220, 470, 1k and 2.2k ohms. Make sure the supply output is OFF.",
-      "why": "Having everything ready means you never leave a live circuit half-built, and starting with the output off keeps you and the parts safe.",
-      "terms": { "Breadboard": "A board with rows of holes connected underneath, so you can build circuits without soldering.", "Multimeter": "A meter that measures voltage, current and resistance.", "Ohm": "The unit of resistance. 1k means 1,000 ohms." },
-      "checkpoint": "All parts are on the bench and the supply output is off."
+      "instruction": "Get your breadboard, test leads, the adjustable DC power supply, a digital multimeter, short 22 or 24 gauge hookup wire, and the four resistors: 220, 470, 1k and 2.2k ohms. Turn the supply's voltage down to zero.",
+      "why": "Starting at zero volts means nothing is live while you build. Thin solid hookup wire fits the breadboard without damaging it.",
+      "terms": { "DMM": "Digital multimeter: measures DC voltage, current and resistance.", "Breadboard": "A board with holes connected in groups of five underneath, so you can build circuits without soldering.", "Ohm": "The unit of resistance. 1k means 1,000 ohms." },
+      "checkpoint": "All parts are at the bench and the supply is set to zero volts."
     },
     {
-      "title": "Identify the resistors",
-      "instruction": "Read the color bands on each resistor. 220 ohms is red, red, brown. 470 is yellow, violet, brown. 1k is brown, black, red. 2.2k is red, red, red. Line them up in order: resistor 1 to 4.",
-      "why": "Resistors look almost the same, and mixing them up is the most common reason measurements don't match. The bands are the part's label.",
-      "terms": { "Color bands": "Stripes that encode the value: first two are digits, the third is how many zeros to add.", "Tolerance": "How far the real value may be from the label. A gold band means plus or minus 5 percent." },
+      "title": "Read the color codes",
+      "instruction": "Read each resistor's bands. The first two bands are digits, the third is how many zeros to add, and the fourth is tolerance: gold means plus or minus 5 percent. 220 is red, red, brown. 470 is yellow, violet, brown. 1k is brown, black, red. 2.2k is red, red, red. Line them up as resistor 1 to 4.",
+      "why": "Resistors look almost identical. The color code is the label, and mixing parts up is the most common reason a lab's numbers don't match.",
+      "terms": { "Color code": "Black 0, brown 1, red 2, orange 3, yellow 4, green 5, blue 6, violet 7, gray 8, white 9. A memory trick: Black Bears Robbed Our Yummy Goodies Beating Various Gray Wolves.", "Tolerance": "How far the real value may be from the nominal value. Gold is 5 percent, silver 10 percent.", "Nominal value": "The value printed by the color code." },
       "checkpoint": "Four resistors identified and lined up in order."
     },
     {
-      "title": "Set the supply to 5 volts",
-      "instruction": "With the output still OFF, turn the voltage knob to 5.0 volts and set the current limit to about 50 milliamps.",
-      "why": "5 volts is safe and gives readable currents. The current limit protects the parts if something is wired wrong.",
-      "terms": { "Volt": "The unit of voltage, the 'push' that drives current.", "Current limit": "The most current the supply will give, even if there's a short." },
-      "checkpoint": "The display shows 5.0 volts and the output is still off."
-    },
-    {
       "title": "Build the circuit with resistor 1",
-      "instruction": "Put resistor 1 across two different rows on the breadboard. Connect the supply's red (+) lead to one end. Connect the multimeter in series between the other end and the supply's black (−) lead, so the current flows through the meter.",
-      "why": "To measure current, the current has to pass through the meter, so it goes in the loop, in series. Putting a resistor's two legs in the same row would short it out.",
-      "terms": { "Series": "One after another in a single loop, so the same current flows through each part.", "Row": "Each short row of 5 holes on a breadboard is connected inside." },
-      "checkpoint": "Resistor 1 is in two different rows and the meter is in the loop."
+      "instruction": "Place resistor 1 so its two legs sit in two different five-hole rows. Wire the supply's positive lead to one leg. Set the DMM to DC current and insert it in-line between the other leg and the supply's negative lead, so the current flows through the meter.",
+      "why": "To measure current, the current has to pass through the meter, so it goes in series. Both legs in the same row would short the resistor out.",
+      "terms": { "In-line (series)": "Part of the single loop, so the same current flows through it.", "Row": "Each group of five holes on a breadboard is connected inside." },
+      "checkpoint": "Resistor 1 spans two rows and the DMM is in-line in the loop."
     },
     {
-      "title": "Measure the current",
-      "instruction": "Move the meter's red lead to the mA jack and set the dial to DC milliamps. Turn the supply output ON and note the current.",
-      "why": "The meter has a separate input for current. Using the wrong jack gives a wrong reading or blows the fuse.",
-      "terms": { "mA": "Milliamps, thousandths of an amp.", "DC": "Direct current: flows one way, like from a battery or bench supply." },
-      "checkpoint": "The meter shows a current reading in milliamps."
+      "title": "Raise the supply to 5 volts",
+      "instruction": "Turn the supply on with the voltage at zero and check the DMM reads zero current. Then slowly raise the supply to 5 volts.",
+      "why": "Starting from zero and raising it slowly lets you catch a wiring mistake before much current flows. At zero volts, Ohm's law predicts zero current.",
+      "terms": { "Volt": "The unit of voltage, the push that drives current." },
+      "checkpoint": "The supply reads 5 volts and the DMM shows a current."
+    },
+    {
+      "title": "Record the current",
+      "instruction": "Read the current on the DMM in milliamps and remember it, or say it to me.",
+      "why": "This is the measured current. Ohm's law predicts I = V / R, so we'll compare the two.",
+      "terms": { "Milliamp (mA)": "A thousandth of an amp." },
+      "checkpoint": "You have the current reading."
     },
     {
       "title": "Measure the voltage",
-      "instruction": "Turn the output OFF. Move the red lead back to the V jack, set the dial to DC volts, and connect the black wire straight to the supply's minus so the meter isn't in the loop anymore. Turn the output ON and touch the probes to both ends of the resistor.",
-      "why": "Voltage is measured across a part, in parallel. The meter compares the two ends of the resistor.",
-      "terms": { "Parallel": "Connected across the two ends of a part, side by side." },
-      "checkpoint": "The meter shows a voltage reading in volts."
+      "instruction": "Turn the supply down to zero. Take the DMM out of the loop and reconnect the resistor straight to the supply's negative lead. Set the DMM to DC volts, raise the supply back to 5 volts, and touch the probes across the two ends of the resistor.",
+      "why": "Voltage is measured across a part, in parallel, not through it. The meter compares the two ends of the resistor.",
+      "terms": { "Across (parallel)": "Connected to both ends of the part, side by side with it." },
+      "checkpoint": "The DMM shows the voltage across resistor 1."
     },
     {
       "title": "Read your values to me",
-      "instruction": "Say the resistor number, the volts and the milliamps, like 'resistor 1, 4.98 volts, 22.4 milliamps'. I'll work out the resistance and tell you if something's off. Then turn the output off, swap in the next resistor, and repeat steps 4 to 6 for resistors 2, 3 and 4.",
-      "why": "Ohm's law says resistance equals voltage divided by current. Comparing that to the color bands catches wrong parts and bad wiring right away.",
-      "terms": { "Ohm's law": "V = I × R: voltage equals current times resistance." },
+      "instruction": "Say the resistor number, the volts and the milliamps, like 'resistor 1, 4.98 volts, 22.4 milliamps'. I'll work out the resistance and the deviation and tell you if something's off. Then turn the supply to zero, swap in the next resistor, and repeat steps 3 to 6 for resistors 2, 3 and 4.",
+      "why": "Comparing measured and nominal values, with the percent deviation, is exactly what your lab report's data table asks for. A big deviation catches a wrong part or a wiring mistake right away.",
+      "terms": { "Deviation": "100 × (measured − nominal) / nominal, in percent." },
       "checkpoint": "All four resistors are measured.",
       "data_collection": true
     }
