@@ -162,7 +162,7 @@
       <rect x="14" y="17" width="20" height="14" rx="6" fill="#d9c7a3"/>
       <rect x="18" y="17" width="3" height="14" fill="#7a4a24"/><rect x="23" y="17" width="3" height="14" fill="#1b1b1b"/><rect x="28" y="17" width="3" height="14" fill="#d0312d"/>
     </svg>
-    <div><h1>Lab Copilot</h1><p>A hands-free lab partner. Talk while your hands stay on the probes.</p></div>
+    <div><h1>Lab Copilot</h1><p>A hands-free lab partner for circuits lab. Talk while your hands stay on the probes.</p></div>
   </div>
   <div class="labchip" id="labchip"><i></i><span id="assay">Ohm's law lab</span></div>
 </header>
@@ -189,8 +189,8 @@
   <section class="bench" aria-label="Lab bench">
     <article class="panel now" id="now" aria-live="polite">
       <span class="tag"><i></i><span id="nowTag">Ready</span></span>
-      <h2 id="nowTitle">Let's run the Ohm's law lab.</h2>
-      <p id="nowBody">Start a session and say "walk me through it" for step-by-step help, or read your first resistor when you're ready.</p>
+      <h2 id="nowTitle">Today's lab: Ohm's law (V = I × R)</h2>
+      <p id="nowBody">Measure the current through and the voltage across four resistors at 5 volts, and check each against its color code. Start a session and say "walk me through it", or read your first resistor.</p>
       <div id="nowExtra"></div>
     </article>
 
@@ -310,8 +310,8 @@
       setNow('', 'Updated', 'Reading removed.', 'Read it again whenever you are ready.');
       return;
     }
-    setNow('', 'Ready', "Let's run the Ohm's law lab.",
-      'Start a session and say "walk me through it" for step-by-step help, or read your first resistor when you are ready.');
+    setNow('', 'Ready', "Today's lab: Ohm's law (V = I × R)",
+      'Measure the current through and the voltage across four resistors at 5 volts, and check each against its color code. Start a session and say "walk me through it", or read your first resistor.');
   }
 
   function render(s, { light = false } = {}) {
