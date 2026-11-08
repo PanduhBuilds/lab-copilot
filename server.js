@@ -5,6 +5,8 @@ import express from 'express';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { need } from './lib/env.js';
 import { analyze } from './lib/analyze.js';
+import { buildReport } from './lib/report.js';
+import { marked } from 'marked';
 import { getSandbox, closeSandbox } from './lib/daytona.js';
 
 const ELEVENLABS_API_KEY = need('ELEVENLABS_API_KEY');
@@ -100,6 +102,33 @@ app.get('/api/token', async (req, res) => {
 
 app.get('/api/state', (req, res) => res.json(payload()));
 
+// Lab report viewer: renders a saved Markdown report as a clean, printable page.
+app.get('/report/:file', (req, res) => {
+  const file = String(req.params.file);
+  if (!/^[\w.-]+-report\.md$/.test(file)) return res.status(400).send('Bad report name');
+  const path = new URL(file, RESULTS_DIR);
+  if (!existsSync(path)) return res.status(404).send('Report not found. Say "wrap it up" to create one.');
+  const md = readFileSync(path, 'utf8').replace(/\]\(([\w.-]+\.png)\)/g, '](/results/$1)').replace(/`([\w.-]+\.csv)`/g, '[$1](/results/$1)');
+  res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab report</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+  body { margin: 0; background: #f4f6f5; color: #17201c; font: 15.5px/1.6 "IBM Plex Sans", system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 40px 24px 64px; }
+  h1 { font: 700 34px/1.1 "Barlow Semi Condensed", sans-serif; margin: 0 0 12px; }
+  h2 { font: 600 20px/1.2 "Barlow Semi Condensed", sans-serif; margin: 32px 0 8px; letter-spacing: .02em; }
+  table { width: 100%; border-collapse: collapse; font: 13px/1.4 "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; background: #fff; }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid #dde4e1; white-space: nowrap; }
+  th { font: 600 12px/1.2 "IBM Plex Sans", sans-serif; color: #55635e; background: #eef2f0; }
+  .scroll { overflow-x: auto; border: 1px solid #dde4e1; border-radius: 10px; }
+  img { max-width: 100%; border-radius: 10px; margin-top: 16px; }
+  code { font-family: "JetBrains Mono", monospace; font-size: .9em; }
+  a { color: #a6192e; }
+  hr { border: 0; border-top: 1px solid #dde4e1; margin: 32px 0 12px; }
+  em { color: #55635e; }
+</style></head><body><main>${marked.parse(md).replace(/<table>/g, '<div class="scroll"><table>').replace(/<\/table>/g, '</table></div>')}</main></body></html>`);
+});
+
 app.post('/api/analyze', async (req, res) => {
   try {
     await runAnalysis();
@@ -177,12 +206,15 @@ app.post('/api/finish', async (req, res) => {
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n') + '\n';
     writeFileSync(new URL(`${base}.csv`, RESULTS_DIR), csv);
     writeFileSync(new URL(`${base}.png`, RESULTS_DIR), Buffer.from(a.chart.split(',')[1], 'base64'));
-    run.files = [`${base}.csv`, `${base}.png`];
+    const report = buildReport({ lab: LAB, protocol: PROTOCOLS[run.guide.protocol], analysis: a,
+      chartFile: `${base}.png`, csvFile: `${base}.csv` });
+    writeFileSync(new URL(`${base}-report.md`, RESULTS_DIR), report);
+    run.files = [`${base}-report.md`, `${base}.csv`, `${base}.png`];
     save();
     console.log('Results written:', run.files.join(', '));
 
     res.json({
-      agent: `Lab saved as ${base}.csv with the voltage-current chart. ${a.n_measured} of ${a.n_parts} resistors measured, ` +
+      agent: `Lab report saved, with the data table and the voltage-current chart. ${a.n_measured} of ${a.n_parts} resistors measured, ` +
         `${a.n_ok} within tolerance` + (a.avg_error_pct != null ? ` (average error ${a.avg_error_pct}%)` : '') + `. ` +
         (a.flags.length ? `Still open: ${a.flags.join(' ')}` : 'No open issues.'),
       ...payload(),

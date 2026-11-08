@@ -12,6 +12,7 @@
   "dependencies": {
     "@daytona/sdk": "^0.231.0",
     "@elevenlabs/client": "^1.35.0",
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "marked": "^15.0.12"
   }
 }

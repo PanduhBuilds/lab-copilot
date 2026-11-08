@@ -220,6 +220,8 @@
 
   const BAND = { black: '#1b1b1b', brown: '#7a4a24', red: '#d0312d', orange: '#f08a24', yellow: '#f2d024',
     green: '#2e9b4f', blue: '#2f6fd6', violet: '#8a4fd1', gray: '#8e8e8e', white: '#f2f2f2', gold: '#c9a43a' };
+  const fileLabel = (f) => (f.endsWith('-report.md') ? 'Open lab report' : f.endsWith('.csv') ? 'Data (CSV)' : 'Chart (PNG)');
+  const fileHref = (f) => (f.endsWith('-report.md') ? `/report/${f}` : `/results/${f}`);
   const fmtOhms = (r) => (r == null ? '—' : r >= 1000 ? `${+(r / 1000).toPrecision(3)} kΩ` : `${+r.toPrecision(3)} Ω`);
 
   function el(tag, text, cls) {
@@ -273,8 +275,8 @@
     if (lastEvent?.type === 'finish' && s.files?.length) {
       const links = el('div', null, 'links');
       s.files.forEach((f, i) => {
-        const link = el('a', i === 0 ? 'Download results (CSV)' : 'V–I chart (PNG)', i ? 'alt' : '');
-        link.href = `/results/${f}`; link.target = '_blank';
+        const link = el('a', fileLabel(f), i ? 'alt' : '');
+        link.href = fileHref(f); link.target = '_blank';
         links.append(link);
       });
       const open = a?.flags.length ?? 0;
@@ -362,7 +364,7 @@
     // Results file
     $('files').replaceChildren(...(s.files?.length
       ? [document.createTextNode('Saved: '), ...s.files.flatMap((f, i) => {
-          const link = el('a', f); link.href = `/results/${f}`; link.target = '_blank';
+          const link = el('a', fileLabel(f)); link.href = fileHref(f); link.target = '_blank';
           return i ? [' · ', link] : [link];
         })]
       : [document.createTextNode('Results file appears when you say "wrap it up".')]));
