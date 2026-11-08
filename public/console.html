@@ -175,8 +175,8 @@
 <div class="app">
   <aside class="side">
     <div class="brand"><span class="mark"></span><span class="txt"><span class="name">Lab Copilot</span><span class="sub">SDSU Engineering</span></span></div>
-    <a class="nav" href="/console.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span class="txt">Home</span></a>
-    <a class="nav active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="txt">Active lab</span><span class="dot"></span></a>
+    <a class="nav" href="#home" id="navHome"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span class="txt">Home</span></a>
+    <a class="nav active" href="#console" id="navLab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="txt">Active lab</span><span class="dot"></span></a>
     <a class="nav" href="#" id="navReport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg><span class="txt">Report</span></a>
     <div class="sidevoice"><span class="label">Voice agent</span><span class="state"><span class="ind" id="sideInd"></span><span class="t" id="sideState">Offline</span></span></div>
   </aside>
@@ -241,6 +241,24 @@
         </div>
       </div>
     </footer>
+  </section>
+
+  <section class="done home" id="home">
+    <span class="label">SDSU Engineering · Intro circuits lab</span>
+    <h2>Today's lab: <em>Ohm's law</em></h2>
+    <div class="sub" id="homeSub">Measure the voltage across and the current through four resistors at 5 volts, and check each against its color code. Your hands stay on the probes; you talk, Lab Copilot logs and checks.</div>
+    <div class="stats">
+      <div class="ro"><span class="label">Guided steps</span><div class="v"><span id="hSteps">7</span></div></div>
+      <div class="ro"><span class="label">Resistors</span><div class="v"><span>4</span></div></div>
+      <div class="ro"><span class="label">Supply</span><div class="v"><span>5</span><small>V</small></div></div>
+      <div class="ro"><span class="label">Tolerance</span><div class="v"><span>±5</span><small>%</small></div></div>
+    </div>
+    <div class="rows" id="homeSteps"></div>
+    <div class="acts">
+      <button class="pill primary" id="homeStart">Start lab</button>
+      <button class="pill" id="homeConsole">Open console</button>
+      <span id="homeFiles" style="display:flex;gap:10px;flex-wrap:wrap"></span>
+    </div>
   </section>
 
   <section class="done" id="done">
@@ -400,7 +418,8 @@ function showDone(s) {
   $('dM').textContent = a.n_measured; $('dOk').textContent = a.n_ok; $('dBad').textContent = a.parts.filter((p) => p.flag).length; $('dErr').textContent = a.avg_error_pct ?? '—';
   $('doneRows').innerHTML = a.parts.map((p) => { const sev = sevOf(p); return `<div class="j"><span>R${p.label} · ${p.bands}</span><span class="n">${p.volts != null ? `${p.volts.toFixed(2)} V · ${p.milliamps} mA` : '—'}</span><span class="n">${p.measured != null ? fmtOhms(p.measured) + ' Ω' : '—'} ${p.error_pct != null ? `(${fmtPct(p.error_pct)}%)` : ''}</span><span class="badge ${sev}">${sevIcon[sev]} ${sevWord[sev]}</span></div>`; }).join('');
   $('doneActs').innerHTML = (s.files || []).map((f, i) => `<a class="pill ${i ? '' : 'primary'}" href="${fileHref(f)}" target="_blank">${fileLabel(f)}</a>`).join('') + `<button class="pill" id="backBtn">Back to console</button>`;
-  $('backBtn').onclick = () => { $('done').classList.remove('show'); $('console').style.display = ''; };
+  $('backBtn').onclick = () => showView('console');
+  $('home').classList.remove('show');
   $('console').style.display = 'none'; $('done').classList.add('show');
 }
 
@@ -448,6 +467,25 @@ $('repeatBtn').onclick = () => say('Please repeat the current step.');
 $('typeBtn').onclick = () => { const f = $('typeForm'); f.hidden = !f.hidden; $('vText').hidden = !f.hidden; $('typeBtn').classList.toggle('on', !f.hidden); if (!f.hidden) $('typeBox').focus(); };
 $('typeForm').onsubmit = (e) => { e.preventDefault(); const t = $('typeBox').value.trim(); if (!t) return; if (!conversation) { setVoice('offline', 'Start a session first.'); return; } say(t); $('typeBox').value = ''; };
 document.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; if (e.key === 'm') $('muteBtn').click(); if (e.key === 'r') $('repeatBtn').click(); if (e.key === 't') $('typeBtn').click(); });
+// ---------- Home view (same file, no reload) ----------
+function showView(v) {
+  $('home').classList.toggle('show', v === 'home'); $('done').classList.remove('show');
+  $('console').style.display = v === 'console' ? '' : 'none';
+  $('navHome').classList.toggle('active', v === 'home'); $('navLab').classList.toggle('active', v === 'console');
+  if (v === 'home') renderHome();
+}
+function renderHome() {
+  const g = state?.guide, titles = g?.titles || [];
+  $('hSteps').textContent = titles.length || 7;
+  $('homeSteps').innerHTML = titles.map((t, i) => `<div class="j" style="grid-template-columns:48px 1fr 150px"><span class="n">${i + 1}</span><span>${t}</span><span class="badge ${g.step == null ? 'wait' : i < g.step ? 'ok' : i === g.step ? 'warn' : 'wait'}">${g.step == null ? '○ Not started' : i < g.step ? '✓ Done' : i === g.step ? '→ Current' : '○ Up next'}</span></div>`).join('');
+  $('homeFiles').innerHTML = (state?.files || []).map((f) => `<a class="pill" href="${fileHref(f)}" target="_blank">${fileLabel(f)}</a>`).join('');
+}
+$('navHome').onclick = (e) => { e.preventDefault(); showView('home'); };
+$('navLab').onclick = (e) => { e.preventDefault(); showView('console'); };
+$('homeConsole').onclick = () => showView('console');
+$('homeStart').onclick = () => { showView('console'); if (!conversation) start(); };
+if (location.hash === '#home') showView('home');
+
 $('tlToggle').onclick = () => { const c = $('work').classList.toggle('tl-collapsed'); $('tlToggle').setAttribute('aria-label', c ? 'Expand timeline' : 'Collapse timeline'); };
 if (innerWidth <= 1180) $('work').classList.add('tl-collapsed');
 setInterval(() => { const s = Math.floor((Date.now() - started) / 1000); $('timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }, 1000);
