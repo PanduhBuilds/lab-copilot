@@ -24,10 +24,10 @@ The "Best ElevenLabs build" prize looks at a knowledge base, custom voices, more
 
 ## What we're building
 
-- **Track:** Health and Care
-- **User:** an SDSU biology undergrad running their first Bradford protein assay in a teaching lab, alone, with gloves on
-- **Problem:** gloved hands can't type. Students write readings on paper (or their glove) and retype them later, which is slow, error-prone, and means a bad sample is only found after the run. First-timers also don't know the steps and are nervous asking.
-- **Finish line:** guided through the protocol by voice, 8 samples logged, the bad sample caught and explained out loud, and a results file saved.
+- **Track:** Learning and Careers (or Open)
+- **User:** an SDSU engineering student in an intro circuits lab, a multimeter probe in each hand
+- **Problem:** both hands are on the probes, so students can't type or check the handout. They mix up identical-looking resistors and wire into the wrong breadboard row, and often only find out after the lab. TAs answer the same "why doesn't my circuit work?" questions all session.
+- **Finish line:** guided through the Ohm's law lab by voice, all 4 resistors measured and logged hands-free, the wrong part and the loose wire caught and explained out loud, and the lab results file saved.
 
 **Pattern:** voice in → the agent decides → Daytona does the real work → voice out.
 
@@ -37,11 +37,11 @@ The "Best ElevenLabs build" prize looks at a knowledge base, custom voices, more
 Browser (public/index.html) ── GET /api/token ──► server.js ──► ElevenLabs (short-lived token)
 mic + speaker ◄════════ live voice session (WebRTC) ════════► ElevenLabs agent
 client tools (log_reading, delete_reading, protocol_step, finish_run)
-      └── POST /api/... ──► server.js ──► Daytona sandbox (numpy/pandas/matplotlib)
+      └── POST /api/... ──► server.js ──► Daytona sandbox (Ohm's law, tolerance, open/short, power, chart)
 ```
 
 - **ElevenLabs:** the voice agent. Private agent; the browser only gets a short-lived token.
-- **Daytona:** fits the standard curve, works out protein concentrations, flags bad wells and draws the chart. It uses the stateful code interpreter, so each reading takes about 0.9 s (it was 2.5 s).
+- **Daytona:** computes R = V / I for each resistor, checks it against the color bands and ±5% tolerance, detects open and short circuits, checks power against the 0.25 W rating, guesses the resistor actually used (nearest E12 value + color bands) and draws the V–I chart. It uses the stateful code interpreter, so each reading takes under 1 s.
 - **Protocols** live in `data/protocols/*.json`. Adding a lab means adding a file.
 - **Mentor Mode:** the server tracks the current step and refuses "next" until the student confirms the checkpoint.
 
@@ -60,7 +60,7 @@ Pushing: commit, then click **Push origin** in GitHub Desktop.
 | Person | Job |
 |---|---|
 | Matt | Runs the app on his laptop, voice tests, drives the Loom |
-| Backend teammate | `lib/report.js`: the Markdown results report (due 2:45) |
+| Backend teammate | `lib/report.js`: the Markdown results report (due 2:45), now using `analysis.parts` (circuits fields) |
 | Teammate | Loom script |
 | Teammate | README draft (track, user, finish line, problem, how it works) |
 | Claude | Agent, server, Daytona analysis, Mentor Mode, wiring it together |
@@ -75,30 +75,28 @@ Pushing: commit, then click **Push origin** in GitHub Desktop.
 
 ## Test scripts (say these out loud)
 
-### Data mode (passed at about 1:28 PM)
+### Circuits run (the Loom flow)
 
-1. "Sample 1, 0.41"
-2. "Sample 2, 0.38"
-3. "Sample 4, 1.32" → should warn it's above the highest standard
-4. "Wait, that was sample 5, not 4" → deletes 4, logs 5
-5. "I'm done, wrap it up" → saves the CSV and chart, results links appear
+1. "Walk me through it" → safety + Step 1; "I'm done" → asks to confirm; "Yes" → Step 2
+2. "Resistor 1, 4.98 volts, 22.4 milliamps" → 222 Ω, OK
+3. "Resistor 2, 4.97 volts, 10.6 milliamps" → 469 Ω, OK
+4. "Resistor 3, 4.99 volts, 1.06 milliamps" → **wrong part**: 4.7k instead of 1k (yellow-violet-red vs brown-black-red)
+5. "Resistor 4, 4.98 volts, zero milliamps" → **open circuit**: loose jumper or wrong row
+6. "Fixed it. Resistor 4, 4.98 volts, 2.25 milliamps" → 2.21k, OK
+7. "Wrap it up" → CSV + chart saved, Lab complete card
 
-Result: all five worked. One pause after the correction (Matt said "Hello?"); keep an eye on it.
+Result: passed by voice at about 2:05 PM (circuits version). Earlier Bradford tests also passed (logging, corrections, Mentor Mode, refusing the microwave question, asking to confirm a misheard "sample 10.41").
 
-### Mentor Mode (to test)
+Tips: say readings with small pauses ("resistor one … four point nine eight volts …"). For the Loom, make sure the agent's voice is recorded (computer audio, or speakers instead of headphones).
 
-1. "Walk me through it" → safety note + Step 1, progress bar highlights Step 1
-2. "I'm done" → asks to confirm the checkpoint, does **not** skip ahead
-3. "Yes" → Step 2
-4. "Why am I doing this?" → plain-language answer
-5. "What does room temperature mean?" → explains the term
-6. "Can I use a microwave to warm it up?" → not in the protocol, check with your TA
-7. "Sample 1, 0.41" → data logging still works
+### Lab parts (data/seed.json)
 
-### Demo numbers (Bradford, blank-subtracted A595)
-
-- Standards (preloaded): 0 → 0.00, 0.25 → 0.14, 0.5 → 0.27, 1 → 0.52, 1.5 → 0.74, 2 → 0.95 (R² 0.998)
-- Samples to read aloud: 1: 0.41, 2: 0.38, 3: 0.44, **4: 1.32 (the bad one)**, 5: 0.40, 6: 0.36, 7: 0.43, 8: 0.39
+| Resistor | Value | Bands |
+|---|---|---|
+| R1 | 220 Ω | red, red, brown |
+| R2 | 470 Ω | yellow, violet, brown |
+| R3 | 1 kΩ | brown, black, red |
+| R4 | 2.2 kΩ | red, red, red |
 
 ## Decisions log
 
@@ -110,6 +108,8 @@ Result: all five worked. One pause after the correction (Matt said "Hello?"); ke
 | ~1:15 | Switched to Daytona's stateful interpreter | Readings went from 2.5 s to 0.9 s (rubric: about 1.5 s replies) |
 | ~1:25 | Added Guided Lab Mentor Mode; user changed to a first-time undergrad | Most students are alone in the lab and new to it; uses the protocol as a knowledge source |
 | — | Skipped protocol upload for today | Time. The file format already makes new protocols a drop-in |
+| ~1:55 | Switched the lab from Bradford assay to a circuits (Ohm's law) lab | Nobody on the team has bio-lab experience; we're tech students and every engineering major takes circuits lab |
+| ~2:10 | UI redesign (instrument panel); asking Grok and Cursor for SDSU-colored inspiration | Judges see the Loom on a screen; a stronger look sells it. Only this Claude chat edits the code |
 
 ## Timeline
 
@@ -117,7 +117,8 @@ Result: all five worked. One pause after the correction (Matt said "Hello?"); ke
 |---|---|
 | 1:00 | ✅ First commit |
 | ~1:30 | ✅ v1 voice test passed, ✅ speed fix, ✅ Mentor Mode built |
-| Next | Mentor Mode voice test |
+| ~2:15 | ✅ Circuits switch, ✅ UI redesign, ✅ README draft |
+| Next | UI inspiration from Grok/Cursor → apply; Loom audio test; teammate report |
 | By 2:45 | Teammate's report wired in |
 | 2:45–3:30 | Optional: ElevenLabs knowledge base, Spanish, turn-taking tuning; practice runs |
 | **3:30** | **Feature freeze** |
@@ -127,11 +128,11 @@ Result: all five worked. One pause after the correction (Matt said "Hello?"); ke
 
 ## Loom plan (2:00 max)
 
-1. **~15 s problem:** "First time in the lab, alone, gloves on: you can't type, and you don't know the steps."
-2. **~25 s Mentor Mode:** "Walk me through it" → one step → "why am I doing this?"
-3. **~50 s data:** read 3 to 4 samples, hit sample 4 so it warns, correct one, interrupt it once
-4. **~15 s finish:** "Wrap it up" → results file appears
-5. **~15 s how and who:** "ElevenLabs is the voice, Daytona does the math safely. Every teaching lab running these assays."
+1. **~15 s problem:** "Circuits lab: a probe in each hand, so you can't type, check the handout, or write things down."
+2. **~20 s Mentor Mode:** "Walk me through it" → one step → "why am I doing this?"
+3. **~50 s data:** R1 OK → R3 wrong part caught → R4 open circuit → fix → R4 OK; interrupt it once
+4. **~15 s finish:** "Wrap it up" → Lab complete + results file
+5. **~20 s how and who:** "ElevenLabs is the voice, Daytona runs the circuit math safely. Every engineering student takes circuits lab."
 
 ## After the hackathon
 
