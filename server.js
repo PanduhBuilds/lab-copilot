@@ -54,7 +54,11 @@ async function runAnalysis(latest = null) {
 
 function guideView() {
   const p = PROTOCOLS[run.guide.protocol];
-  return { name: p.name, step: run.guide.step, titles: p.steps.map((s) => s.title) };
+  const cur = run.guide.step == null ? null : p.steps[run.guide.step];
+  return {
+    name: p.name, step: run.guide.step, titles: p.steps.map((s) => s.title),
+    instruction: cur?.instruction ?? null, checkpoint: cur?.checkpoint ?? null, data_collection: !!cur?.data_collection,
+  };
 }
 
 const payload = (extra = {}) => ({ lab: LAB.lab, ...run, guide: guideView(), analysis: lastAnalysis, ...extra });

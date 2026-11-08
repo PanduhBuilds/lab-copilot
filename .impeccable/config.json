@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "public/index.html"
+        ],
+        "createdAt": "2026-11-08T22:07:22.503Z",
+        "reason": "Claude: chart img is hidden until the Daytona analysis sets its src at runtime"
+      }
+    ]
+  }
+}

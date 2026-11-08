@@ -4,109 +4,208 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lab Copilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
   <style>
+    /* Instrument panel on a lab bench: dark housing, phosphor green for "good",
+       amber for "live / listening", fault red for problems. One authored moment:
+       the Now card re-lights on every event. */
     :root {
-      --bg: #f2f5f6; --card: #ffffff; --text: #1b2326; --muted: #5f6d72; --line: #dde4e7;
-      --blue: #2a6f97; --blue-soft: #e3eef5; --amber: #edae49; --amber-soft: #fbf1dc;
-      --red: #d1495b; --red-soft: #fbe5e8; --green: #2f8a57; --green-soft: #e2f3e9;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg: #11171a; --card: #1a2226; --text: #eaf0f2; --muted: #9aa8ad; --line: #2c373c;
-        --blue-soft: #16303f; --amber-soft: #3a2d12; --red-soft: #3d1c21; --green-soft: #173325; }
+      --housing: #0b100e; --panel: #121916; --panel-2: #18211e; --line: #24302c; --line-2: #2f3d38;
+      --ink: #e4eee9; --ink-2: #a9b8b2; --ink-3: #7f8f89;
+      --ok: #5ee08a; --ok-dim: #1d3a29; --live: #ffb547; --live-dim: #3a2d14;
+      --fault: #ff5a4e; --fault-dim: #3d1a17; --info: #7cc4ff; --info-dim: #16293a;
+      --display: "Barlow Semi Condensed", "Avenir Next Condensed", "Arial Narrow", system-ui, sans-serif;
+      --body: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+      --ease: cubic-bezier(.16, 1, .3, 1);
+      color-scheme: dark;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    header { padding: 20px 24px 0; max-width: 1280px; margin: 0 auto; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-    header h1 { margin: 0; font-size: 26px; }
-    header p { margin: 0; color: var(--muted); }
-    main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; }
-    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; align-content: start; min-width: 0; }
-    h2 { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-    .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    button { font: inherit; border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; background: var(--blue); color: #fff; font-weight: 700; }
-    button.stop { background: var(--red); }
-    button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 14px; font-weight: 500; font-size: 14px; }
-    button:disabled { opacity: .5; cursor: default; }
-    .pill { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 14px; }
-    .pill.on { color: var(--green); border-color: var(--green); }
-    #log { display: grid; gap: 8px; min-height: 280px; max-height: 56vh; overflow-y: auto; align-content: start; }
-    .msg { padding: 8px 12px; border-radius: 12px; max-width: 88%; }
-    .msg.user { justify-self: end; background: var(--blue); color: #fff; }
-    .msg.agent { background: var(--blue-soft); }
-    .msg.sys { color: var(--muted); font-size: 14px; padding: 2px 4px; }
-    .msg.tool { color: var(--muted); font-size: 13px; font-family: ui-monospace, Menlo, monospace; padding: 2px 4px; }
-    form { display: flex; gap: 8px; }
-    input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
-    .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
-    .head strong { font-size: 18px; }
-    .stats { display: flex; gap: 8px; flex-wrap: wrap; }
-    .stat { background: var(--bg); border-radius: 10px; padding: 6px 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
-    .stat b { font-size: 17px; }
-    #flags { display: grid; gap: 8px; }
-    .flag { border-radius: 10px; padding: 9px 14px; background: var(--red-soft); border: 1px solid var(--red); }
-    .flag::before { content: "⚠ "; color: var(--red); font-weight: 700; }
-    .allgood { border-radius: 10px; padding: 9px 14px; background: var(--green-soft); color: var(--green); font-weight: 600; }
-    #chart { width: 100%; border-radius: 10px; background: #fff; min-height: 140px; }
-    .daytona { font-size: 13px; color: var(--muted); }
-    .scroll { overflow-x: auto; max-height: 340px; overflow-y: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
-    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-    td:last-child { white-space: normal; }
-    th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; position: sticky; top: 0; background: var(--card); }
-    tr.bad td { background: var(--red-soft); }
-    tr.new td { animation: hl 2s ease-out; }
-    @keyframes hl { from { background: var(--amber-soft); } }
-    #files a { color: var(--blue); font-weight: 600; }
-    .guide { display: grid; gap: 8px; }
-    .guide-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
-    .guide-head b { color: var(--text); }
-    .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; }
-    .steps li { border-radius: 8px; padding: 6px 8px; font-size: 12.5px; line-height: 1.3; background: var(--bg); color: var(--muted); border: 1px solid transparent; }
-    .steps li span { display: block; font-weight: 700; font-size: 11px; letter-spacing: .05em; }
-    .steps li.done { color: var(--green); }
-    .steps li.done span::after { content: " ✓"; }
-    .steps li.now { background: var(--blue-soft); color: var(--text); border-color: var(--blue); font-weight: 600; }
+    html { background: var(--housing); }
+    body { margin: 0; background: radial-gradient(1200px 600px at 70% -10%, #15201c 0%, var(--housing) 60%); color: var(--ink);
+      font: 15.5px/1.5 var(--body); min-height: 100vh; }
+    ::selection { background: var(--live); color: #1a1205; }
+    :focus-visible { outline: 2px solid var(--live); outline-offset: 3px; border-radius: 6px; }
+    * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+
+    header { max-width: 1320px; margin: 0 auto; padding: 22px 24px 4px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand svg { width: 38px; height: 38px; }
+    .brand h1 { margin: 0; font: 700 26px/1 var(--display); letter-spacing: .01em; }
+    .brand p { margin: 2px 0 0; color: var(--ink-3); font-size: 13.5px; }
+    .labchip { margin-left: auto; display: flex; gap: 8px; align-items: center; font: 500 13px/1 var(--mono); color: var(--ink-2);
+      border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; background: var(--panel); }
+    .labchip i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+    .labchip.on i { background: var(--ok); }
+
+    main { max-width: 1320px; margin: 0 auto; padding: 16px 24px 40px; display: grid; grid-template-columns: minmax(320px, 4fr) minmax(0, 7fr); gap: 20px; }
+    @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; min-width: 0; }
+
+    /* ---------- Voice column ---------- */
+    .voice { display: grid; grid-template-rows: auto 1fr auto; height: calc(100vh - 120px); min-height: 560px; position: sticky; top: 16px; }
+    @media (max-width: 980px) { .voice { height: auto; position: static; } }
+    .orbwrap { display: grid; justify-items: center; gap: 10px; padding: 26px 20px 18px; border-bottom: 1px solid var(--line); }
+    .orb { position: relative; width: 120px; height: 120px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center;
+      background: radial-gradient(circle at 35% 30%, #2a3631, #141c19 70%); box-shadow: inset 0 1px 0 #ffffff14, 0 10px 30px #00000066;
+      transition: transform .3s var(--ease), background .3s; color: var(--ink); }
+    .orb:hover { transform: scale(1.03); }
+    .orb:active { transform: scale(.98); }
+    .orb svg { width: 40px; height: 40px; position: relative; z-index: 2; }
+    .orb::before, .orb::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; }
+    .orb.listening { background: radial-gradient(circle at 35% 30%, #4a3a17, #22190a 70%); color: var(--live); }
+    .orb.listening::before { border-color: var(--live); animation: ring 1.8s var(--ease) infinite; }
+    .orb.listening::after { border-color: var(--live); animation: ring 1.8s var(--ease) .6s infinite; }
+    .orb.speaking { background: radial-gradient(circle at 35% 30%, #1f4a31, #0f2318 70%); color: var(--ok); }
+    .orb.connecting { animation: breathe 1.2s ease-in-out infinite; }
+    @keyframes ring { from { transform: scale(1); opacity: .9; } to { transform: scale(1.45); opacity: 0; } }
+    @keyframes breathe { 50% { opacity: .55; } }
+    .bars { position: absolute; bottom: 22px; display: none; gap: 3px; height: 16px; align-items: end; z-index: 2; }
+    .orb.speaking .bars { display: flex; }
+    .orb.speaking svg { transform: translateY(-8px); }
+    .bars span { width: 3px; background: var(--ok); border-radius: 2px; animation: eq .9s ease-in-out infinite; }
+    .bars span:nth-child(2) { animation-delay: .15s } .bars span:nth-child(3) { animation-delay: .3s } .bars span:nth-child(4) { animation-delay: .45s } .bars span:nth-child(5) { animation-delay: .6s }
+    @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 16px; } }
+    .voicestate { font: 600 17px/1.2 var(--display); letter-spacing: .02em; }
+    .voicehint { color: var(--ink-3); font-size: 13px; text-align: center; max-width: 34ch; }
+
+    #log { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .msg { padding: 9px 13px; border-radius: 14px; max-width: 88%; line-height: 1.45; animation: rise .35s var(--ease); }
+    .msg.user { align-self: flex-end; background: #233a33; color: var(--ink); border-bottom-right-radius: 4px; }
+    .msg.agent { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+    .msg.sys { align-self: center; color: var(--ink-3); font-size: 12.5px; padding: 2px 8px; }
+    .msg.tool { align-self: flex-start; font: 500 12px/1.3 var(--mono); color: var(--info); background: var(--info-dim); border-radius: 999px; padding: 5px 11px; }
+    .msg.tool.bad { color: var(--fault); background: var(--fault-dim); }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+    .empty { margin: auto; color: var(--ink-3); text-align: center; font-size: 13.5px; max-width: 30ch; }
+    form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+    input { flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 11px 15px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--housing); color: var(--ink); }
+    input::placeholder { color: var(--ink-3); }
+    input:disabled { opacity: .55; }
+    .btn { font: 600 14px/1 var(--body); border: 0; border-radius: 12px; padding: 0 16px; cursor: pointer; background: var(--ink); color: var(--housing); }
+    .btn:disabled { opacity: .35; cursor: default; }
+    .btn.ghost { background: transparent; color: var(--ink-3); border: 1px solid var(--line-2); padding: 9px 14px; font-weight: 500; }
+    .btn.ghost:hover { color: var(--ink); border-color: var(--ink-3); }
+
+    /* ---------- Bench column ---------- */
+    .bench { display: grid; gap: 16px; align-content: start; }
+    .now { padding: 22px 24px; display: grid; gap: 8px; position: relative; overflow: hidden; transition: border-color .4s, background .4s; }
+    .now .tag { display: inline-flex; align-items: center; gap: 8px; font: 600 12.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+    .now .tag i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+    .now h2 { margin: 0; font: 700 clamp(26px, 3.2vw, 38px)/1.08 var(--display); letter-spacing: .005em; text-wrap: balance; }
+    .now p { margin: 0; color: var(--ink-2); font-size: 16.5px; max-width: 62ch; text-wrap: pretty; }
+    .now .big { font: 600 clamp(30px, 4vw, 46px)/1 var(--mono); letter-spacing: -.02em; }
+    .now .sub { font: 500 14px/1.4 var(--mono); color: var(--ink-3); }
+    .now.ok { border-color: #2c5a3e; background: linear-gradient(180deg, #13241b, var(--panel) 70%); } .now.ok .tag { color: var(--ok); }
+    .now.fault { border-color: #6b2a24; background: linear-gradient(180deg, #2a1411, var(--panel) 70%); } .now.fault .tag { color: var(--fault); }
+    .now.fault h2 { color: #ffd9d5; }
+    .now.step { border-color: #5a4720; background: linear-gradient(180deg, #221b0d, var(--panel) 70%); } .now.step .tag { color: var(--live); }
+    .now.done { border-color: #2c5a3e; background: linear-gradient(180deg, #123020, var(--panel) 75%); } .now.done .tag { color: var(--ok); }
+    .now.lit { animation: light .7s var(--ease); }
+    .now.fault.lit { animation: light .7s var(--ease), nudge .45s var(--ease); }
+    @keyframes light { from { filter: brightness(1.6); transform: translateY(4px); } }
+    @keyframes nudge { 20% { translate: -5px 0; } 45% { translate: 4px 0; } 70% { translate: -2px 0; } }
+    .now .links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+    .now .links a { font: 600 13.5px/1 var(--mono); color: var(--housing); background: var(--ok); padding: 10px 14px; border-radius: 10px; text-decoration: none; }
+    .now .links a.alt { background: transparent; color: var(--ok); border: 1px solid #2c5a3e; }
+
+    .progress { padding: 14px 18px 16px; display: grid; gap: 10px; }
+    .progress-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+    .progress-head b { font: 600 16px/1.2 var(--display); letter-spacing: .02em; }
+    .progress-head span { font: 500 12.5px/1 var(--mono); color: var(--ink-3); }
+    .segs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; list-style: none; margin: 0; padding: 0; }
+    .segs li { height: 6px; border-radius: 3px; background: var(--line-2); position: relative; transition: background .4s; }
+    .segs li.done { background: var(--ok); }
+    .segs li.cur { background: var(--live); }
+    .segs li[title]:hover::after { content: attr(title); position: absolute; top: 12px; left: 0; white-space: nowrap; font-size: 12px; color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--line); padding: 4px 8px; border-radius: 6px; z-index: 3; }
+
+    .parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    @media (max-width: 1180px) { .parts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .part { padding: 14px 14px 16px; display: grid; gap: 8px; align-content: start; transition: border-color .4s, background .4s; }
+    .part.ok { border-color: #2c5a3e; } .part.fault { border-color: #6b2a24; background: linear-gradient(180deg, #24120f, var(--panel)); }
+    .part.flash { animation: light .7s var(--ease); }
+    .part-head { display: flex; justify-content: space-between; align-items: center; }
+    .part-head b { font: 700 20px/1 var(--display); }
+    .badge { font: 600 11px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; color: var(--ink-3); background: var(--panel-2); }
+    .part.ok .badge { color: var(--ok); background: var(--ok-dim); } .part.fault .badge { color: var(--fault); background: var(--fault-dim); }
+    .resistor { width: 100%; height: 34px; }
+    .bands { font-size: 12px; color: var(--ink-3); }
+    .reading { font: 600 22px/1.1 var(--mono); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+    .reading.wait { color: var(--ink-3); font-weight: 400; font-size: 15px; }
+    .meta { font: 400 12.5px/1.45 var(--mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .meta em { font-style: normal; color: var(--ink-2); }
+    .part.fault .meta em { color: var(--fault); }
+    .advice { font-size: 13px; color: #ffcfc9; line-height: 1.4; }
+
+    .scope { padding: 14px 16px 12px; display: grid; gap: 8px; }
+    .scope-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+    .scope-head b { font: 600 16px/1.2 var(--display); letter-spacing: .02em; }
+    #chart { width: 100%; border-radius: 10px; display: block; min-height: 120px; background: #0f1513; }
+    .daytona { display: flex; align-items: center; gap: 8px; font: 500 12.5px/1.3 var(--mono); color: var(--ink-3); }
+    .daytona i { width: 7px; height: 7px; border-radius: 50%; background: var(--info); flex: none; }
+    .daytona.busy i { animation: breathe .8s ease-in-out infinite; background: var(--live); }
+    .foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #files { font: 500 13px/1.4 var(--mono); color: var(--ink-3); }
+    #files a { color: var(--ok); text-underline-offset: 3px; }
+
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   </style>
 </head>
 <body>
 <header>
-  <h1>🔌 Lab Copilot</h1>
-  <p>Say your meter readings out loud. It walks you through the lab, checks Ohm's law, and catches wiring mistakes while your hands stay on the probes.</p>
+  <div class="brand">
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <rect x="1" y="1" width="46" height="46" rx="12" fill="#18211e" stroke="#2f3d38"/>
+      <path d="M6 24h8M34 24h8" stroke="#a9b8b2" stroke-width="2.2" stroke-linecap="round"/>
+      <rect x="14" y="17" width="20" height="14" rx="6" fill="#d9c7a3"/>
+      <rect x="18" y="17" width="3" height="14" fill="#7a4a24"/><rect x="23" y="17" width="3" height="14" fill="#1b1b1b"/><rect x="28" y="17" width="3" height="14" fill="#d0312d"/>
+    </svg>
+    <div><h1>Lab Copilot</h1><p>A hands-free lab partner. Talk while your hands stay on the probes.</p></div>
+  </div>
+  <div class="labchip" id="labchip"><i></i><span id="assay">Ohm's law lab</span></div>
 </header>
+
 <main>
-  <section class="card">
-    <h2>Voice</h2>
-    <div class="bar">
-      <button id="toggle">Start session</button>
-      <span id="status" class="pill">not connected</span>
-      <span id="mode" class="pill" hidden></span>
+  <section class="panel voice" aria-label="Voice">
+    <div class="orbwrap">
+      <button class="orb" id="toggle" aria-label="Start session">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>
+        </svg>
+        <span class="bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></span>
+      </button>
+      <div class="voicestate" id="status">Tap to start</div>
+      <div class="voicehint" id="mode">Say "walk me through it", or read a resistor: "resistor 1, 4.98 volts, 22.4 milliamps".</div>
     </div>
-    <div id="log"></div>
+    <div id="log"><div class="empty" id="empty">Your conversation shows up here. Headphones help in a noisy lab.</div></div>
     <form id="typeForm">
-      <input id="typeBox" placeholder="Or type, e.g. resistor 2, 4.97 volts, 10.6 milliamps" disabled>
-      <button id="sendBtn" disabled>Send</button>
+      <input id="typeBox" placeholder="Or type, e.g. resistor 2, 4.97 volts, 10.6 mA" disabled aria-label="Type a message">
+      <button class="btn" id="sendBtn" disabled>Send</button>
     </form>
   </section>
 
-  <section class="card">
-    <div class="head">
-      <div><h2>Lab bench</h2><strong id="assay">Ohm's law lab</strong></div>
-      <div class="stats" id="stats"></div>
+  <section class="bench" aria-label="Lab bench">
+    <article class="panel now" id="now" aria-live="polite">
+      <span class="tag"><i></i><span id="nowTag">Ready</span></span>
+      <h2 id="nowTitle">Let's run the Ohm's law lab.</h2>
+      <p id="nowBody">Start a session and say "walk me through it" for step-by-step help, or read your first resistor when you're ready.</p>
+      <div id="nowExtra"></div>
+    </article>
+
+    <div class="panel progress">
+      <div class="progress-head"><b id="guideNow">Guided steps</b><span id="guideTitle">not started</span></div>
+      <ol class="segs" id="steps"></ol>
     </div>
-    <div class="guide">
-      <div class="guide-head"><span id="guideTitle">Guided protocol</span><span id="guideNow">Say "walk me through it" to start</span></div>
-      <ol class="steps" id="steps"></ol>
+
+    <div class="parts" id="parts"></div>
+
+    <div class="panel scope">
+      <div class="scope-head"><b>Measured vs. Ohm's law</b><span class="daytona" id="daytona"><i></i>Starting the Daytona sandbox…</span></div>
+      <img id="chart" hidden alt="Each resistor's measured voltage and current, compared with the line Ohm's law predicts for its color-band value">
+      <div class="foot"><span id="files">Results file appears when you say "wrap it up".</span><button class="btn ghost" id="reset">Reset demo</button></div>
     </div>
-    <div id="flags"></div>
-    <div class="scroll"><table>
-      <thead><tr><th>Resistor</th><th>Color bands</th><th>Expected</th><th>Volts</th><th>mA</th><th>Measured</th><th>Error</th><th>Check</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table></div>
-    <img id="chart" alt="Measured voltage and current compared with Ohm's law">
-    <div class="daytona" id="daytona">Starting the Daytona sandbox…</div>
-    <div id="files"></div>
-    <div class="bar"><button class="ghost" id="reset">Reset demo (clear measurements)</button></div>
   </section>
 </main>
 
@@ -115,15 +214,13 @@
   const { Conversation } = ElevenLabsClient;
   const $ = (id) => document.getElementById(id);
   let conversation = null;
-  let lastKey = null;
+  let state = null;
+  let lastEvent = null;   // { type: 'reading' | 'step' | 'finish' | 'delete', label? }
+  let flashLabel = null;
 
-  function addMessage(kind, text) {
-    const div = document.createElement('div');
-    div.className = `msg ${kind}`;
-    div.textContent = text;
-    $('log').append(div);
-    $('log').scrollTop = $('log').scrollHeight;
-  }
+  const BAND = { black: '#1b1b1b', brown: '#7a4a24', red: '#d0312d', orange: '#f08a24', yellow: '#f2d024',
+    green: '#2e9b4f', blue: '#2f6fd6', violet: '#8a4fd1', gray: '#8e8e8e', white: '#f2f2f2', gold: '#c9a43a' };
+  const fmtOhms = (r) => (r == null ? '—' : r >= 1000 ? `${+(r / 1000).toPrecision(3)} kΩ` : `${+r.toPrecision(3)} Ω`);
 
   function el(tag, text, cls) {
     const e = document.createElement(tag);
@@ -132,60 +229,146 @@
     return e;
   }
 
-  function render(s) {
+  function addMessage(kind, text) {
+    $('empty')?.remove();
+    const div = el('div', text, `msg ${kind}`);
+    $('log').append(div);
+    $('log').scrollTop = $('log').scrollHeight;
+    return div;
+  }
+
+  function resistorSvg(bands) {
+    const cols = String(bands || '').split(',').map((c) => BAND[c.trim()] || '#555');
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 160 34');
+    svg.setAttribute('class', 'resistor');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = `<line x1="0" y1="17" x2="160" y2="17" stroke="#8b9893" stroke-width="2.5" stroke-linecap="round"/>
+      <rect x="36" y="4" width="88" height="26" rx="11" fill="#d9c7a3"/>` +
+      cols.slice(0, 3).map((c, i) => `<rect x="${50 + i * 13}" y="4" width="7" height="26" fill="${c}"/>`).join('') +
+      `<rect x="104" y="4" width="7" height="26" fill="${BAND.gold}"/>`;
+    return svg;
+  }
+
+  function lightNow() {
+    const now = $('now');
+    now.classList.remove('lit');
+    void now.offsetWidth;
+    now.classList.add('lit');
+  }
+
+  function setNow(kind, tag, title, body, extra) {
+    $('now').className = `panel now ${kind}`;
+    $('nowTag').textContent = tag;
+    $('nowTitle').textContent = title;
+    $('nowBody').textContent = body ?? '';
+    $('nowBody').hidden = !body;
+    $('nowExtra').replaceChildren(...(extra ?? []));
+  }
+
+  function renderNow(s) {
     const a = s.analysis;
-    if (s.lab) $('assay').textContent = `${s.lab.name} · ${s.lab.setup}`;
+    const g = s.guide;
+    if (lastEvent?.type === 'finish' && s.files?.length) {
+      const links = el('div', null, 'links');
+      s.files.forEach((f, i) => {
+        const link = el('a', i === 0 ? 'Download results (CSV)' : 'V–I chart (PNG)', i ? 'alt' : '');
+        link.href = `/results/${f}`; link.target = '_blank';
+        links.append(link);
+      });
+      const open = a?.flags.length ?? 0;
+      setNow('done', 'Lab complete', `${a.n_measured} of ${a.n_parts} resistors measured, ${a.n_ok} within tolerance.`,
+        open ? `${open} issue still open: ${a.flags[0]}` : (a.avg_error_pct != null ? `Average error ${a.avg_error_pct}%. Clean run.` : ''), [links]);
+      return;
+    }
+    if (lastEvent?.type === 'reading' && a) {
+      const x = a.parts.find((p) => p.label === lastEvent.label);
+      if (x && x.volts != null) {
+        const big = el('div', x.measured != null ? fmtOhms(x.measured) : `${x.milliamps} mA`, 'big');
+        const sub = el('div', `R${x.label} · ${x.volts.toFixed(2)} V · ${x.milliamps} mA · expected ${fmtOhms(x.nominal)}` +
+          (x.error_pct != null ? ` (${x.error_pct > 0 ? '+' : ''}${x.error_pct}%)` : ''), 'sub');
+        if (x.flag) {
+          const title = x.flag === 'open circuit' ? `R${x.label}: open circuit` : x.flag === 'short circuit' ? `R${x.label}: short circuit`
+            : x.flag === 'over power rating' ? `R${x.label} is running hot` : `R${x.label}: wrong part`;
+          setNow('fault', 'Problem caught', title, x.advice, [big, sub]);
+        } else {
+          const left = a.n_parts - a.n_measured;
+          setNow('ok', 'Within tolerance', `R${x.label} checks out.`, left ? `${left} to go.` : 'All four measured. Say "wrap it up" to save the lab.', [big, sub]);
+        }
+        return;
+      }
+    }
+    if (g?.step != null && lastEvent?.type !== 'reading') {
+      setNow('step', `Step ${g.step + 1} of ${g.titles.length}`, g.titles[g.step], g.instruction,
+        g.checkpoint ? [el('div', `Before moving on: ${g.checkpoint}`, 'sub')] : []);
+      return;
+    }
+    if (lastEvent?.type === 'delete') {
+      setNow('', 'Updated', 'Reading removed.', 'Read it again whenever you are ready.');
+      return;
+    }
+    setNow('', 'Ready', "Let's run the Ohm's law lab.",
+      'Start a session and say "walk me through it" for step-by-step help, or read your first resistor when you are ready.');
+  }
 
-    // Table: one row per resistor, measured or not, so the student sees what's left.
-    const fmtOhms = (r) => (r == null ? '—' : r >= 1000 ? `${+(r / 1000).toPrecision(3)} kΩ` : `${+r.toPrecision(3)} Ω`);
-    const rows = (a?.parts ?? []).map((x) => {
-      const tr = el('tr', null, x.flag ? 'bad' : '');
-      if (lastKey === x.label) tr.classList.add('new');
-      const check = x.volts == null ? 'not measured yet' : x.flag ? `⚠ ${x.flag}` : '✓ within tolerance';
-      tr.append(
-        el('td', `R${x.label}`), el('td', x.bands ?? ''), el('td', fmtOhms(x.nominal)),
-        el('td', x.volts != null ? x.volts.toFixed(2) : '—'), el('td', x.milliamps != null ? String(x.milliamps) : '—'),
-        el('td', fmtOhms(x.measured)), el('td', x.error_pct != null ? `${x.error_pct > 0 ? '+' : ''}${x.error_pct}%` : '—'),
-        el('td', check),
-      );
-      return tr;
-    });
-    $('rows').replaceChildren(...rows);
+  function render(s, { light = false } = {}) {
+    state = s;
+    const a = s.analysis;
+    if (s.lab) $('assay').textContent = `${s.lab.name} · 5 V supply`;
 
-    if (s.guide) {
-      const g = s.guide;
-      $('guideTitle').textContent = `Guided protocol · ${g.name}`;
-      $('guideNow').replaceChildren(g.step == null
-        ? 'Say "walk me through it" to start'
-        : Object.assign(el('b'), { textContent: `Step ${g.step + 1} of ${g.titles.length}: ${g.titles[g.step]}` }));
+    // Guided steps
+    const g = s.guide;
+    if (g) {
+      $('guideNow').textContent = g.step == null ? 'Guided steps' : `Step ${g.step + 1}: ${g.titles[g.step]}`;
+      $('guideTitle').textContent = g.step == null ? 'say "walk me through it"' : `${g.step + 1} / ${g.titles.length}`;
       $('steps').replaceChildren(...g.titles.map((t, i) => {
-        const li = el('li', null, g.step == null ? '' : i < g.step ? 'done' : i === g.step ? 'now' : '');
-        li.append(el('span', `STEP ${i + 1}`), t);
+        const li = el('li', null, g.step == null ? '' : i < g.step ? 'done' : i === g.step ? 'cur' : '');
+        li.title = `${i + 1}. ${t}`;
         return li;
       }));
     }
 
-    if (!a) return;
-    const stats = [
-      ['Measured', `${a.n_measured}/${a.n_parts}`], ['In tolerance', a.n_ok],
-      ['Avg error', a.avg_error_pct != null ? `${a.avg_error_pct}%` : '—'], ['Issues', a.flags.length],
-    ];
-    $('stats').replaceChildren(...stats.map(([k, v]) => {
-      const d = el('div', null, 'stat');
-      d.append(`${k} `, el('b', String(v)));
-      return d;
-    }));
-    $('flags').replaceChildren(...(a.flags.length
-      ? a.flags.map((f) => el('div', f, 'flag'))
-      : [el('div', a.n_measured ? 'Everything measured so far checks out.' : 'Ready. Read your first resistor whenever you are.', 'allgood')]));
-    $('chart').src = a.chart;
-    $('daytona').textContent = `Ohm's law, tolerance, open/short and power checks ran in a Daytona sandbox · ${(a.ms / 1000).toFixed(1)} s`;
+    // Resistor cards
+    if (a) {
+      $('parts').replaceChildren(...a.parts.map((x) => {
+        const st = x.volts == null ? '' : x.flag ? 'fault' : 'ok';
+        const card = el('article', null, `panel part ${st}`);
+        if (flashLabel === x.label) card.classList.add('flash');
+        const head = el('div', null, 'part-head');
+        head.append(el('b', `R${x.label}`), el('span', x.volts == null ? 'waiting' : x.flag ?? 'ok', 'badge'));
+        const reading = x.measured != null ? el('div', fmtOhms(x.measured), 'reading')
+          : x.volts != null ? el('div', `${x.milliamps} mA`, 'reading') : el('div', 'not measured', 'reading wait');
+        const meta = el('div', null, 'meta');
+        meta.append(`expected ${fmtOhms(x.nominal)}`);
+        if (x.volts != null) {
+          meta.append(el('br'), `${x.volts.toFixed(2)} V · ${x.milliamps} mA`);
+          if (x.error_pct != null) { meta.append(el('br')); meta.append(el('em', `${x.error_pct > 0 ? '+' : ''}${x.error_pct}% error`)); }
+        }
+        card.append(head, resistorSvg(x.bands), el('div', x.bands ?? '', 'bands'), reading, meta);
+        if (x.flag && x.advice) card.append(el('div', x.advice.split('. ').slice(-2).join('. '), 'advice'));
+        return card;
+      }));
+      $('chart').src = a.chart;
+      $('chart').hidden = false;
+      $('daytona').className = 'daytona';
+      $('daytona').innerHTML = '';
+      $('daytona').append(el('i'), `Analyzed in a Daytona sandbox · ${(a.ms / 1000).toFixed(1)} s`);
+      const issues = a.flags.length;
+      $('labchip').classList.toggle('on', true);
+      $('assay').textContent = `${s.lab?.name ?? "Ohm's law lab"} · ${a.n_measured}/${a.n_parts} measured${issues ? ` · ${issues} issue${issues > 1 ? 's' : ''}` : ''}`;
+    }
+
+    // Results file
     $('files').replaceChildren(...(s.files?.length
-      ? [el('span', 'Results saved: '), ...s.files.flatMap((f, i) => {
+      ? [document.createTextNode('Saved: '), ...s.files.flatMap((f, i) => {
           const link = el('a', f); link.href = `/results/${f}`; link.target = '_blank';
           return i ? [' · ', link] : [link];
         })]
-      : []));
+      : [document.createTextNode('Results file appears when you say "wrap it up".')]));
+
+    renderNow(s);
+    if (light) lightNow();
   }
 
   async function post(url, body) {
@@ -195,48 +378,65 @@
     return data;
   }
 
-  function tool(name, url, keyOf) {
+  const resistorOf = (p) => String(Number((String(p.resistor ?? '').match(/\d+/) || [''])[0]));
+  function toolLabel(name, p) {
+    if (name === 'log_reading') return `logged R${resistorOf(p)} · ${p.volts} V · ${p.milliamps} mA`;
+    if (name === 'delete_reading') return `removed R${resistorOf(p)}`;
+    if (name === 'finish_run') return 'saving the lab results';
+    if (name === 'protocol_step') return p.action === 'next' && !p.confirmed ? 'checking before next step' : `guided step: ${p.action}`;
+    return name;
+  }
+
+  function tool(name, url, eventOf) {
     return async (params) => {
-      addMessage('tool', `→ ${name} ${JSON.stringify(params)}`);
-      $('daytona').textContent = 'Re-running the analysis in Daytona…';
+      const chip = addMessage('tool', toolLabel(name, params));
+      $('daytona').classList.add('busy');
       try {
         const s = await post(url, params);
-        lastKey = keyOf ? keyOf(params) : null;
-        render(s);
+        lastEvent = eventOf(params);
+        flashLabel = lastEvent.label ?? null;
+        render(s, { light: true });
+        if (lastEvent.type === 'reading') {
+          const x = s.analysis?.parts.find((p) => p.label === lastEvent.label);
+          if (x?.flag) { chip.classList.add('bad'); chip.textContent += ` · ${x.flag}`; }
+        }
         return s.agent;
       } catch (err) {
+        chip.classList.add('bad');
         return `That failed: ${err.message}`;
+      } finally {
+        $('daytona').classList.remove('busy');
       }
     };
   }
 
   // Tools the agent can call. Names must match scripts/setup-agent.js.
-  const resistorOf = (p) => String(Number((String(p.resistor ?? '').match(/\d+/) || [''])[0]));
   const clientTools = {
-    log_reading: tool('log_reading', '/api/reading', resistorOf),
-    delete_reading: tool('delete_reading', '/api/delete'),
-    finish_run: tool('finish_run', '/api/finish'),
-    protocol_step: async (params) => {
-      addMessage('tool', `→ protocol_step ${JSON.stringify(params)}`);
-      try {
-        const s = await post('/api/step', params);
-        render(s);
-        return s.agent;
-      } catch (err) {
-        return `That failed: ${err.message}`;
-      }
-    },
+    log_reading: tool('log_reading', '/api/reading', (p) => ({ type: 'reading', label: resistorOf(p) })),
+    delete_reading: tool('delete_reading', '/api/delete', (p) => ({ type: 'delete', label: resistorOf(p) })),
+    finish_run: tool('finish_run', '/api/finish', () => ({ type: 'finish' })),
+    protocol_step: tool('protocol_step', '/api/step', () => ({ type: 'step' })),
   };
 
+  function setVoice(mode) {
+    const orb = $('toggle');
+    orb.classList.remove('listening', 'speaking', 'connecting');
+    if (mode) orb.classList.add(mode);
+    const text = { listening: 'Listening…', speaking: 'Copilot speaking', connecting: 'Connecting…' }[mode] ?? 'Tap to start';
+    $('status').textContent = text;
+    orb.setAttribute('aria-label', conversation ? 'End session' : 'Start session');
+    $('mode').textContent = conversation ? 'Tap the mic to end the session.'
+      : 'Say "walk me through it", or read a resistor: "resistor 1, 4.98 volts, 22.4 milliamps".';
+  }
+
   function setConnected(on) {
-    $('toggle').textContent = on ? 'End session' : 'Start session';
-    $('toggle').classList.toggle('stop', on);
     $('typeBox').disabled = $('sendBtn').disabled = !on;
-    $('mode').hidden = !on;
+    setVoice(on ? 'listening' : null);
   }
 
   async function start() {
     $('toggle').disabled = true;
+    setVoice('connecting');
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       const res = await fetch('/api/token');
@@ -244,18 +444,21 @@
       conversation = await Conversation.startSession({
         conversationToken: await res.text(),
         clientTools,
-        onConnect: () => { setConnected(true); addMessage('sys', 'Connected.'); },
-        onDisconnect: (d) => { setConnected(false); addMessage('sys', `Session ended (${d.reason}).`); conversation = null; },
+        onConnect: () => { setConnected(true); addMessage('sys', 'Session started'); },
+        onDisconnect: (d) => { conversation = null; setConnected(false); addMessage('sys', `Session ended (${d.reason})`); },
         // Expressive voice tags like [happy] or [slow] shape the audio; hide them in the transcript.
         onMessage: ({ role, message }) => addMessage(role === 'user' ? 'user' : 'agent',
           role === 'user' ? message : message.replace(/\[[a-z][a-z ]{0,20}\]\s*/gi, '').trim()),
         onError: (m) => { console.error(m); addMessage('sys', `Error: ${m}`); },
-        onStatusChange: ({ status }) => { $('status').textContent = status; $('status').classList.toggle('on', status === 'connected'); },
-        onModeChange: ({ mode }) => { $('mode').textContent = mode === 'speaking' ? 'copilot speaking' : 'listening'; },
+        onModeChange: ({ mode }) => { if (conversation) setVoice(mode === 'speaking' ? 'speaking' : 'listening'); },
       });
     } catch (err) {
       console.error(err);
-      addMessage('sys', `Could not start: ${err.message}`);
+      conversation = null;
+      setVoice(null);
+      addMessage('sys', /denied|permission/i.test(err.message)
+        ? 'Microphone blocked. Allow it from the icon in the address bar, then tap the mic again.'
+        : `Could not start: ${err.message}`);
     } finally {
       $('toggle').disabled = false;
     }
@@ -271,8 +474,8 @@
     $('typeBox').value = '';
   };
   $('reset').onclick = async () => {
-    $('daytona').textContent = 'Resetting and re-fitting in Daytona…';
-    lastKey = null;
+    $('daytona').classList.add('busy');
+    lastEvent = null; flashLabel = null;
     render(await post('/api/reset'));
   };
 
