@@ -255,7 +255,9 @@
         clientTools,
         onConnect: () => { setConnected(true); addMessage('sys', 'Connected.'); },
         onDisconnect: (d) => { setConnected(false); addMessage('sys', `Session ended (${d.reason}).`); conversation = null; },
-        onMessage: ({ role, message }) => addMessage(role === 'user' ? 'user' : 'agent', message),
+        // Expressive voice tags like [happy] or [slow] shape the audio; hide them in the transcript.
+        onMessage: ({ role, message }) => addMessage(role === 'user' ? 'user' : 'agent',
+          role === 'user' ? message : message.replace(/\[[a-z][a-z ]{0,20}\]\s*/gi, '').trim()),
         onError: (m) => { console.error(m); addMessage('sys', `Error: ${m}`); },
         onStatusChange: ({ status }) => { $('status').textContent = status; $('status').classList.toggle('on', status === 'connected'); },
         onModeChange: ({ mode }) => { $('mode').textContent = mode === 'speaking' ? 'copilot speaking' : 'listening'; },
