@@ -71,8 +71,8 @@
 </head>
 <body>
 <header>
-  <h1>🧪 Lab Copilot</h1>
-  <p>Read your plate out loud. It logs every value, fits the curve, and catches bad wells while your gloves stay on.</p>
+  <h1>🔌 Lab Copilot</h1>
+  <p>Say your meter readings out loud. It walks you through the lab, checks Ohm's law, and catches wiring mistakes while your hands stay on the probes.</p>
 </header>
 <main>
   <section class="card">
@@ -84,14 +84,14 @@
     </div>
     <div id="log"></div>
     <form id="typeForm">
-      <input id="typeBox" placeholder="Or type, e.g. sample 3, 0.44" disabled>
+      <input id="typeBox" placeholder="Or type, e.g. resistor 2, 4.97 volts, 10.6 milliamps" disabled>
       <button id="sendBtn" disabled>Send</button>
     </form>
   </section>
 
   <section class="card">
     <div class="head">
-      <div><h2>Plate run</h2><strong id="assay">Bradford protein assay · A595</strong></div>
+      <div><h2>Lab bench</h2><strong id="assay">Ohm's law lab</strong></div>
       <div class="stats" id="stats"></div>
     </div>
     <div class="guide">
@@ -99,14 +99,14 @@
       <ol class="steps" id="steps"></ol>
     </div>
     <div id="flags"></div>
-    <img id="chart" alt="Standard curve with samples">
-    <div class="daytona" id="daytona">Fitting the standard curve in a Daytona sandbox…</div>
-    <div id="files"></div>
     <div class="scroll"><table>
-      <thead><tr><th>Well</th><th>A595</th><th>Protein (mg/mL)</th><th>Check</th></tr></thead>
+      <thead><tr><th>Resistor</th><th>Color bands</th><th>Expected</th><th>Volts</th><th>mA</th><th>Measured</th><th>Error</th><th>Check</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
-    <div class="bar"><button class="ghost" id="reset">Reset demo (keep standards only)</button></div>
+    <img id="chart" alt="Measured voltage and current compared with Ohm's law">
+    <div class="daytona" id="daytona">Starting the Daytona sandbox…</div>
+    <div id="files"></div>
+    <div class="bar"><button class="ghost" id="reset">Reset demo (clear measurements)</button></div>
   </section>
 </main>
 
@@ -134,29 +134,22 @@
 
   function render(s) {
     const a = s.analysis;
-    if (s.assay) $('assay').textContent = `${s.assay.name} · ${s.assay.reader}`;
+    if (s.lab) $('assay').textContent = `${s.lab.name} · ${s.lab.setup}`;
 
-    // Table: samples first (newest work), then standards.
-    const bySample = new Map((a?.samples ?? []).map((x) => [x.label, x]));
-    const samples = s.readings.filter((r) => r.kind === 'sample')
-      .sort((x, y) => Number(x.label) - Number(y.label));
-    const standards = s.readings.filter((r) => r.kind === 'standard')
-      .sort((x, y) => Number(x.label) - Number(y.label));
-    const rows = [];
-    for (const r of samples) {
-      const info = bySample.get(r.label);
-      const tr = el('tr', null, info?.flag ? 'bad' : '');
-      if (lastKey === `sample:${r.label}`) tr.classList.add('new');
-      tr.append(el('td', `Sample ${r.label}`), el('td', r.absorbance.toFixed(2)),
-        el('td', info?.conc != null ? info.conc.toFixed(2) : '—'), el('td', info?.flag ?? '✓'));
-      rows.push(tr);
-    }
-    for (const r of standards) {
-      const tr = el('tr');
-      if (lastKey === `standard:${r.label}`) tr.classList.add('new');
-      tr.append(el('td', `Standard ${r.label}`), el('td', r.absorbance.toFixed(2)), el('td', r.label), el('td', 'standard'));
-      rows.push(tr);
-    }
+    // Table: one row per resistor, measured or not, so the student sees what's left.
+    const fmtOhms = (r) => (r == null ? '—' : r >= 1000 ? `${+(r / 1000).toPrecision(3)} kΩ` : `${+r.toPrecision(3)} Ω`);
+    const rows = (a?.parts ?? []).map((x) => {
+      const tr = el('tr', null, x.flag ? 'bad' : '');
+      if (lastKey === x.label) tr.classList.add('new');
+      const check = x.volts == null ? 'not measured yet' : x.flag ? `⚠ ${x.flag}` : '✓ within tolerance';
+      tr.append(
+        el('td', `R${x.label}`), el('td', x.bands ?? ''), el('td', fmtOhms(x.nominal)),
+        el('td', x.volts != null ? x.volts.toFixed(2) : '—'), el('td', x.milliamps != null ? String(x.milliamps) : '—'),
+        el('td', fmtOhms(x.measured)), el('td', x.error_pct != null ? `${x.error_pct > 0 ? '+' : ''}${x.error_pct}%` : '—'),
+        el('td', check),
+      );
+      return tr;
+    });
     $('rows').replaceChildren(...rows);
 
     if (s.guide) {
@@ -174,8 +167,8 @@
 
     if (!a) return;
     const stats = [
-      ['Standards', a.n_standards], ['Samples', a.n_samples],
-      ['R²', a.fit ? a.fit.r2.toFixed(3) : '—'], ['Issues', a.flags.length],
+      ['Measured', `${a.n_measured}/${a.n_parts}`], ['In tolerance', a.n_ok],
+      ['Avg error', a.avg_error_pct != null ? `${a.avg_error_pct}%` : '—'], ['Issues', a.flags.length],
     ];
     $('stats').replaceChildren(...stats.map(([k, v]) => {
       const d = el('div', null, 'stat');
@@ -184,10 +177,9 @@
     }));
     $('flags').replaceChildren(...(a.flags.length
       ? a.flags.map((f) => el('div', f, 'flag'))
-      : [el('div', a.n_samples ? 'All samples look good.' : 'Standards look good. Ready for samples.', 'allgood')]));
+      : [el('div', a.n_measured ? 'Everything measured so far checks out.' : 'Ready. Read your first resistor whenever you are.', 'allgood')]));
     $('chart').src = a.chart;
-    $('daytona').textContent = `Curve fit, concentrations and outlier checks ran in a Daytona sandbox · ${(a.ms / 1000).toFixed(1)} s` +
-      (a.fit ? ` · y = ${a.fit.slope}x + ${a.fit.intercept}` : '');
+    $('daytona').textContent = `Ohm's law, tolerance, open/short and power checks ran in a Daytona sandbox · ${(a.ms / 1000).toFixed(1)} s`;
     $('files').replaceChildren(...(s.files?.length
       ? [el('span', 'Results saved: '), ...s.files.flatMap((f, i) => {
           const link = el('a', f); link.href = `/results/${f}`; link.target = '_blank';
@@ -219,10 +211,9 @@
   }
 
   // Tools the agent can call. Names must match scripts/setup-agent.js.
-  const kindOf = (k) => (/stand|std/i.test(String(k)) ? 'standard' : 'sample');
+  const resistorOf = (p) => String(Number((String(p.resistor ?? '').match(/\d+/) || [''])[0]));
   const clientTools = {
-    log_reading: tool('log_reading', '/api/reading', (p) =>
-      `${kindOf(p.kind)}:${kindOf(p.kind) === 'standard' ? String(parseFloat(p.label)) : String(Number((String(p.label).match(/\d+/) || [''])[0]))}`),
+    log_reading: tool('log_reading', '/api/reading', resistorOf),
     delete_reading: tool('delete_reading', '/api/delete'),
     finish_run: tool('finish_run', '/api/finish'),
     protocol_step: async (params) => {

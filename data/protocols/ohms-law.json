@@ -1,0 +1,63 @@
+{
+  "id": "ohms-law",
+  "name": "Ohm's law lab",
+  "summary": "You'll measure the voltage across and the current through four resistors, then check Ohm's law: resistance equals voltage divided by current. If a measured resistance is far from what the color bands say, something is wired wrong or the wrong part is in the board.",
+  "source": "Intro circuits teaching-lab procedure (demo version). Follow your own lab's approved handout if it differs.",
+  "safety": [
+    "Turn the power supply output OFF whenever you change wiring.",
+    "Never connect the multimeter in current (mA) mode directly across the supply: it blows the meter's fuse.",
+    "If a resistor gets hot or smells, turn the output off right away and tell your TA."
+  ],
+  "steps": [
+    {
+      "title": "Get set up",
+      "instruction": "Get a breadboard, the bench power supply, a digital multimeter with red and black leads, four jumper wires, and the four resistors: 220, 470, 1k and 2.2k ohms. Make sure the supply output is OFF.",
+      "why": "Having everything ready means you never leave a live circuit half-built, and starting with the output off keeps you and the parts safe.",
+      "terms": { "Breadboard": "A board with rows of holes connected underneath, so you can build circuits without soldering.", "Multimeter": "A meter that measures voltage, current and resistance.", "Ohm": "The unit of resistance. 1k means 1,000 ohms." },
+      "checkpoint": "All parts are on the bench and the supply output is off."
+    },
+    {
+      "title": "Identify the resistors",
+      "instruction": "Read the color bands on each resistor. 220 ohms is red, red, brown. 470 is yellow, violet, brown. 1k is brown, black, red. 2.2k is red, red, red. Line them up in order: resistor 1 to 4.",
+      "why": "Resistors look almost the same, and mixing them up is the most common reason measurements don't match. The bands are the part's label.",
+      "terms": { "Color bands": "Stripes that encode the value: first two are digits, the third is how many zeros to add.", "Tolerance": "How far the real value may be from the label. A gold band means plus or minus 5 percent." },
+      "checkpoint": "Four resistors identified and lined up in order."
+    },
+    {
+      "title": "Set the supply to 5 volts",
+      "instruction": "With the output still OFF, turn the voltage knob to 5.0 volts and set the current limit to about 50 milliamps.",
+      "why": "5 volts is safe and gives readable currents. The current limit protects the parts if something is wired wrong.",
+      "terms": { "Volt": "The unit of voltage, the 'push' that drives current.", "Current limit": "The most current the supply will give, even if there's a short." },
+      "checkpoint": "The display shows 5.0 volts and the output is still off."
+    },
+    {
+      "title": "Build the circuit with resistor 1",
+      "instruction": "Put resistor 1 across two different rows on the breadboard. Connect the supply's red (+) lead to one end. Connect the multimeter in series between the other end and the supply's black (−) lead, so the current flows through the meter.",
+      "why": "To measure current, the current has to pass through the meter, so it goes in the loop, in series. Putting a resistor's two legs in the same row would short it out.",
+      "terms": { "Series": "One after another in a single loop, so the same current flows through each part.", "Row": "Each short row of 5 holes on a breadboard is connected inside." },
+      "checkpoint": "Resistor 1 is in two different rows and the meter is in the loop."
+    },
+    {
+      "title": "Measure the current",
+      "instruction": "Move the meter's red lead to the mA jack and set the dial to DC milliamps. Turn the supply output ON and note the current.",
+      "why": "The meter has a separate input for current. Using the wrong jack gives a wrong reading or blows the fuse.",
+      "terms": { "mA": "Milliamps, thousandths of an amp.", "DC": "Direct current: flows one way, like from a battery or bench supply." },
+      "checkpoint": "The meter shows a current reading in milliamps."
+    },
+    {
+      "title": "Measure the voltage",
+      "instruction": "Turn the output OFF. Move the red lead back to the V jack, set the dial to DC volts, and connect the black wire straight to the supply's minus so the meter isn't in the loop anymore. Turn the output ON and touch the probes to both ends of the resistor.",
+      "why": "Voltage is measured across a part, in parallel. The meter compares the two ends of the resistor.",
+      "terms": { "Parallel": "Connected across the two ends of a part, side by side." },
+      "checkpoint": "The meter shows a voltage reading in volts."
+    },
+    {
+      "title": "Read your values to me",
+      "instruction": "Say the resistor number, the volts and the milliamps, like 'resistor 1, 4.98 volts, 22.4 milliamps'. I'll work out the resistance and tell you if something's off. Then turn the output off, swap in the next resistor, and repeat steps 4 to 6 for resistors 2, 3 and 4.",
+      "why": "Ohm's law says resistance equals voltage divided by current. Comparing that to the color bands catches wrong parts and bad wiring right away.",
+      "terms": { "Ohm's law": "V = I × R: voltage equals current times resistance." },
+      "checkpoint": "All four resistors are measured.",
+      "data_collection": true
+    }
+  ]
+}

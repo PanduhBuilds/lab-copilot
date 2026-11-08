@@ -1,19 +1,23 @@
 {
-  "assay": {
-    "name": "Bradford protein assay",
-    "reader": "plate reader at 595 nm, blank-subtracted",
-    "standards": "BSA at 0, 0.25, 0.5, 1, 1.5 and 2 mg/mL",
-    "user": "Sam, a biology grad student running the assay with gloved hands"
+  "lab": {
+    "name": "Ohm's law lab",
+    "setup": "5 V bench supply, digital multimeter, breadboard",
+    "user": "an SDSU engineering student in an intro circuits lab, with a multimeter probe in each hand"
   },
-  "readings": [
-    { "kind": "standard", "label": "0",    "absorbance": 0.0 },
-    { "kind": "standard", "label": "0.25", "absorbance": 0.14 },
-    { "kind": "standard", "label": "0.5",  "absorbance": 0.27 },
-    { "kind": "standard", "label": "1",    "absorbance": 0.52 },
-    { "kind": "standard", "label": "1.5",  "absorbance": 0.74 },
-    { "kind": "standard", "label": "2",    "absorbance": 0.95 }
+  "tolerance": 0.05,
+  "rating_w": 0.25,
+  "parts": [
+    { "label": "1", "nominal": 220,  "bands": "red, red, brown" },
+    { "label": "2", "nominal": 470,  "bands": "yellow, violet, brown" },
+    { "label": "3", "nominal": 1000, "bands": "brown, black, red" },
+    { "label": "4", "nominal": 2200, "bands": "red, red, red" }
   ],
-  "demo_samples_to_read_aloud": {
-    "1": 0.41, "2": 0.38, "3": 0.44, "4": 1.32, "5": 0.40, "6": 0.36, "7": 0.43, "8": 0.39
-  }
+  "readings": [],
+  "demo_readings_to_say_aloud": [
+    "Resistor 1, 4.98 volts, 22.4 milliamps  (OK: 222 ohms)",
+    "Resistor 2, 4.97 volts, 10.6 milliamps  (OK: 469 ohms)",
+    "Resistor 3, 4.99 volts, 1.06 milliamps  (WRONG PART: reads 4.7k, it's yellow-violet-red not brown-black-red)",
+    "Resistor 4, 4.98 volts, 0 milliamps     (OPEN CIRCUIT: loose wire)",
+    "Resistor 4, 4.98 volts, 2.25 milliamps  (fixed: 2.21k, OK)"
+  ]
 }

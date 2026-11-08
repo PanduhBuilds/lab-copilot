@@ -1,5 +1,6 @@
 // Lab Copilot server: hands the browser a short-lived ElevenLabs token, keeps the
-// plate readings, runs the analysis in Daytona, and writes the results file.
+// circuit measurements, runs the Ohm's law analysis in Daytona, tracks the guided
+// protocol step, and writes the lab results file.
 import express from 'express';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { need } from './lib/env.js';
@@ -11,7 +12,7 @@ need('DAYTONA_API_KEY');
 const AGENT_ID = need('AGENT_ID');
 const PORT = Number(process.env.PORT) || 3000;
 
-const SEED = JSON.parse(readFileSync(new URL('./data/seed.json', import.meta.url), 'utf8'));
+const LAB = JSON.parse(readFileSync(new URL('./data/seed.json', import.meta.url), 'utf8'));
 const RUN_FILE = new URL('./data/run.json', import.meta.url);
 const RESULTS_DIR = new URL('./results/', import.meta.url);
 
@@ -24,34 +25,30 @@ const PROTOCOLS = Object.fromEntries(
       return [p.id, p];
     }),
 );
-const DEFAULT_PROTOCOL = 'bradford';
+const DEFAULT_PROTOCOL = 'ohms-law';
 
-const seedRun = () => ({
-  readings: SEED.readings.map((r) => ({ ...r })),
+const freshRun = () => ({
+  readings: [], // { label, volts, milliamps }
   files: [],
   guide: { protocol: DEFAULT_PROTOCOL, step: null }, // step: null = not started, else 0-based index
 });
-let run = existsSync(RUN_FILE) ? JSON.parse(readFileSync(RUN_FILE, 'utf8')) : seedRun();
-run.guide ??= { protocol: DEFAULT_PROTOCOL, step: null };
+let run = existsSync(RUN_FILE) ? JSON.parse(readFileSync(RUN_FILE, 'utf8')) : freshRun();
+if (!PROTOCOLS[run.guide?.protocol] || run.readings.some((r) => r.volts === undefined)) run = freshRun();
 let lastAnalysis = null;
 const save = () => writeFileSync(RUN_FILE, JSON.stringify(run, null, 2));
 
-// "S3", "sample 3", 3 -> "3".  "0.50", ".5" -> "0.5"
-function normalize(kind, label) {
-  const k = /stand|std/i.test(String(kind)) ? 'standard' : 'sample';
-  const raw = String(label ?? '').trim();
-  if (k === 'standard') {
-    const n = parseFloat(raw);
-    return { kind: 'standard', label: Number.isFinite(n) ? String(n) : raw };
-  }
-  const digits = raw.match(/\d+/);
-  return { kind: 'sample', label: digits ? String(Number(digits[0])) : raw };
-}
+// "R3", "resistor 3", 3 -> "3"
+const resistorLabel = (x) => {
+  const digits = String(x ?? '').match(/\d+/);
+  return digits ? String(Number(digits[0])) : '';
+};
+const partFor = (label) => LAB.parts.find((p) => p.label === label);
+const ohms = (r) => (r >= 1000 ? `${+(r / 1000).toPrecision(3)}k ohms` : `${+r.toPrecision(3)} ohms`);
 
 async function runAnalysis(latest = null) {
-  lastAnalysis = await analyze(run.readings, latest);
-  console.log(`Daytona analysis: ${lastAnalysis.n_standards} standards, ${lastAnalysis.n_samples} samples, ` +
-    `R2 ${lastAnalysis.fit?.r2 ?? '-'}, ${lastAnalysis.flags.length} flag(s), ${lastAnalysis.ms} ms`);
+  lastAnalysis = await analyze(LAB, run.readings, latest);
+  console.log(`Daytona analysis: ${lastAnalysis.n_measured}/${lastAnalysis.n_parts} measured, ` +
+    `${lastAnalysis.flags.length} issue(s), ${lastAnalysis.ms} ms`);
   return lastAnalysis;
 }
 
@@ -60,7 +57,7 @@ function guideView() {
   return { name: p.name, step: run.guide.step, titles: p.steps.map((s) => s.title) };
 }
 
-const payload = (extra = {}) => ({ assay: SEED.assay, ...run, guide: guideView(), analysis: lastAnalysis, ...extra });
+const payload = (extra = {}) => ({ lab: LAB.lab, ...run, guide: guideView(), analysis: lastAnalysis, ...extra });
 
 // What the agent hears about one step. Everything comes from the protocol file, nothing invented.
 function describeStep(p, i, { withSafety = false } = {}) {
@@ -109,58 +106,64 @@ app.post('/api/analyze', async (req, res) => {
   }
 });
 
-// Tool: log_reading. Logging the same well again replaces the old value (a correction).
+// Tool: log_reading. Logging the same resistor again replaces the old values (a correction or re-measure).
 app.post('/api/reading', async (req, res) => {
-  const { kind, label } = normalize(req.body?.kind, req.body?.label);
-  const absorbance = Number(req.body?.absorbance);
-  if (!label || !Number.isFinite(absorbance)) {
-    return res.json({ agent: 'Not saved: I need a sample or standard and an absorbance number. Ask again.', ...payload() });
+  const label = resistorLabel(req.body?.resistor);
+  const volts = Number(req.body?.volts);
+  const milliamps = Number(req.body?.milliamps);
+  if (!label || !Number.isFinite(volts) || !Number.isFinite(milliamps)) {
+    return res.json({ agent: 'Not saved: I need the resistor number, the volts and the milliamps. Ask again.', ...payload() });
   }
-  const replaced = run.readings.some((r) => r.kind === kind && r.label === label);
-  run.readings = run.readings.filter((r) => !(r.kind === kind && r.label === label)).concat({ kind, label, absorbance });
+  const replaced = run.readings.some((r) => r.label === label);
+  run.readings = run.readings.filter((r) => r.label !== label).concat({ label, volts, milliamps });
   save();
-  console.log(`${replaced ? 'Replaced' : 'Logged'} ${kind} ${label}: ${absorbance}`);
+  console.log(`${replaced ? 'Replaced' : 'Logged'} resistor ${label}: ${volts} V, ${milliamps} mA`);
 
-  const name = kind === 'standard' ? `standard ${label} milligrams per mL` : `sample ${label}`;
+  const part = partFor(label);
   try {
-    const a = await runAnalysis({ kind, label });
-    let text = `${replaced ? 'Updated' : 'Logged'} ${name} at ${absorbance}.`;
-    if (a.latest?.conc != null) text += ` That works out to ${a.latest.conc.toFixed(2)} mg/mL.`;
-    if (a.latest?.flag) text += ` Warning: this sample is ${a.latest.flag}. Say this clearly.`;
-    else if (kind === 'standard' && a.fit && a.n_standards >= 3) text += ` Standard curve R squared is now ${a.fit.r2.toFixed(3)}.`;
-    const otherFlags = a.flags.filter((f) => !f.startsWith(`Sample ${label} `));
-    if (otherFlags.length) text += ` Other open issues: ${otherFlags.join(' ')}`;
+    const a = await runAnalysis(label);
+    const x = a.latest;
+    let text = `${replaced ? 'Updated' : 'Logged'} resistor ${label}: ${volts} volts, ${milliamps} milliamps.`;
+    if (x?.measured != null) {
+      text += ` That's ${ohms(x.measured)}` + (part ? `, expected ${ohms(part.nominal)} (${x.error_pct >= 0 ? '+' : ''}${x.error_pct}%).` : '.');
+    }
+    if (x?.flag) text += ` PROBLEM (${x.flag}): ${x.advice} Say this clearly and simply, then ask them to fix it and re-measure.`;
+    else if (x?.measured != null) text += ' Within tolerance.';
+    const left = LAB.parts.filter((p) => !run.readings.some((r) => r.label === p.label)).map((p) => p.label);
+    text += left.length ? ` Still to measure: resistor ${left.join(', ')}.` : ' All resistors are measured. Offer to wrap up the lab.';
     res.json({ agent: text, ...payload() });
   } catch (err) {
     console.error(err.message);
-    res.json({ agent: `Logged ${name} at ${absorbance}, but the analysis is unavailable right now.`, ...payload() });
+    res.json({ agent: `Logged resistor ${label}, but the analysis is unavailable right now.`, ...payload() });
   }
 });
 
-// Tool: delete_reading. Used for "undo that" and for moving a value to the right well.
+// Tool: delete_reading. Used for "undo that" and when the student says it was a different resistor.
 app.post('/api/delete', async (req, res) => {
-  const { kind, label } = normalize(req.body?.kind, req.body?.label);
+  const label = resistorLabel(req.body?.resistor);
   const before = run.readings.length;
-  run.readings = run.readings.filter((r) => !(r.kind === kind && r.label === label));
+  run.readings = run.readings.filter((r) => r.label !== label);
   if (run.readings.length === before) {
-    return res.json({ agent: `There was no ${kind} ${label} to delete.`, ...payload() });
+    return res.json({ agent: `There was no reading for resistor ${label} to delete.`, ...payload() });
   }
   save();
-  console.log(`Deleted ${kind} ${label}`);
+  console.log(`Deleted resistor ${label}`);
   try { await runAnalysis(); } catch (err) { console.error(err.message); }
-  res.json({ agent: `Deleted ${kind} ${label}.`, ...payload() });
+  res.json({ agent: `Deleted the reading for resistor ${label}.`, ...payload() });
 });
 
-// Tool: finish_run. Writes the results CSV and the curve PNG.
+// Tool: finish_run. Writes the lab results CSV and the V-I chart.
 app.post('/api/finish', async (req, res) => {
   try {
     const a = await runAnalysis();
     mkdirSync(RESULTS_DIR, { recursive: true });
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})/, '$1-');
-    const base = `bradford-${stamp}`;
-    const rows = [['kind', 'label', 'absorbance_595', 'protein_mg_per_ml', 'flag']];
-    for (const r of run.readings.filter((x) => x.kind === 'standard')) rows.push(['standard', r.label, r.absorbance, r.label, '']);
-    for (const s of a.samples) rows.push(['sample', s.label, s.absorbance, s.conc ?? '', s.flag ?? '']);
+    const base = `ohms-law-${stamp}`;
+    const rows = [['resistor', 'color_bands', 'expected_ohms', 'volts', 'milliamps', 'measured_ohms', 'error_pct', 'power_w', 'status']];
+    for (const x of a.parts) {
+      rows.push([x.label, x.bands ?? '', x.nominal ?? '', x.volts ?? '', x.milliamps ?? '', x.measured ?? '',
+        x.error_pct ?? '', x.power_w ?? '', x.volts == null ? 'not measured' : (x.flag ?? 'ok')]);
+    }
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n') + '\n';
     writeFileSync(new URL(`${base}.csv`, RESULTS_DIR), csv);
     writeFileSync(new URL(`${base}.png`, RESULTS_DIR), Buffer.from(a.chart.split(',')[1], 'base64'));
@@ -168,18 +171,15 @@ app.post('/api/finish', async (req, res) => {
     save();
     console.log('Results written:', run.files.join(', '));
 
-    const good = a.samples.filter((s) => !s.flag && s.conc != null);
-    const mean = good.length ? good.reduce((t, s) => t + s.conc, 0) / good.length : null;
     res.json({
-      agent: `Run saved as ${base}.csv with the curve chart. ${a.n_samples} samples, ` +
-        (mean != null ? `average ${mean.toFixed(2)} mg/mL across the ${good.length} good samples, ` : '') +
-        `${a.flags.length} issue(s) flagged${a.flags.length ? ': ' + a.flags.join(' ') : ''}. ` +
-        `R squared ${a.fit?.r2?.toFixed(3) ?? 'not available'}.`,
+      agent: `Lab saved as ${base}.csv with the voltage-current chart. ${a.n_measured} of ${a.n_parts} resistors measured, ` +
+        `${a.n_ok} within tolerance` + (a.avg_error_pct != null ? ` (average error ${a.avg_error_pct}%)` : '') + `. ` +
+        (a.flags.length ? `Still open: ${a.flags.join(' ')}` : 'No open issues.'),
       ...payload(),
     });
   } catch (err) {
     console.error(err.message);
-    res.json({ agent: `Could not save the run: ${err.message}`, ...payload() });
+    res.json({ agent: `Could not save the lab: ${err.message}`, ...payload() });
   }
 });
 
@@ -200,7 +200,7 @@ app.post('/api/step', (req, res) => {
     if (!confirmed) {
       text = `Not moving on yet. First ask them to confirm: "${p.steps[step].checkpoint}" Call protocol_step with action "next" and confirmed true only after they say yes.`;
     } else if (step >= last) {
-      text = `They have finished all ${p.steps.length} steps. If they have not read the plate yet, remind them to read each value to you.`;
+      text = `They have finished all ${p.steps.length} steps. If they haven't read all four resistors yet, remind them to read each one to you.`;
     } else {
       step += 1;
       text = describeStep(p, step);
@@ -219,9 +219,9 @@ app.post('/api/step', (req, res) => {
   res.json({ agent: text, ...payload() });
 });
 
-// Demo helper: back to the six standards, no samples.
+// Demo helper: clear all measurements and the guided step.
 app.post('/api/reset', async (req, res) => {
-  run = seedRun();
+  run = freshRun();
   save();
   try {
     await runAnalysis();
@@ -233,7 +233,7 @@ app.post('/api/reset', async (req, res) => {
 
 const server = app.listen(PORT, '127.0.0.1', () => {
   console.log(`Open http://localhost:${PORT}`);
-  // Warm the sandbox and draw the first curve while the page loads.
+  // Warm the sandbox and draw the first chart while the page loads.
   getSandbox().then(() => runAnalysis()).catch((err) => console.error('Warm-up failed:', err.message));
 });
 
