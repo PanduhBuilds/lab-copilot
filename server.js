@@ -1,7 +1,7 @@
 // Lab Copilot server: hands the browser a short-lived ElevenLabs token, keeps the
 // plate readings, runs the analysis in Daytona, and writes the results file.
 import express from 'express';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { need } from './lib/env.js';
 import { analyze } from './lib/analyze.js';
 import { getSandbox, closeSandbox } from './lib/daytona.js';
@@ -15,8 +15,24 @@ const SEED = JSON.parse(readFileSync(new URL('./data/seed.json', import.meta.url
 const RUN_FILE = new URL('./data/run.json', import.meta.url);
 const RESULTS_DIR = new URL('./results/', import.meta.url);
 
-const seedRun = () => ({ readings: SEED.readings.map((r) => ({ ...r })), files: [] });
+// Protocols: one JSON file per experiment in data/protocols/. Adding a lab = adding a file.
+const PROTOCOLS = Object.fromEntries(
+  readdirSync(new URL('./data/protocols/', import.meta.url))
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => {
+      const p = JSON.parse(readFileSync(new URL(`./data/protocols/${f}`, import.meta.url), 'utf8'));
+      return [p.id, p];
+    }),
+);
+const DEFAULT_PROTOCOL = 'bradford';
+
+const seedRun = () => ({
+  readings: SEED.readings.map((r) => ({ ...r })),
+  files: [],
+  guide: { protocol: DEFAULT_PROTOCOL, step: null }, // step: null = not started, else 0-based index
+});
 let run = existsSync(RUN_FILE) ? JSON.parse(readFileSync(RUN_FILE, 'utf8')) : seedRun();
+run.guide ??= { protocol: DEFAULT_PROTOCOL, step: null };
 let lastAnalysis = null;
 const save = () => writeFileSync(RUN_FILE, JSON.stringify(run, null, 2));
 
@@ -39,7 +55,29 @@ async function runAnalysis(latest = null) {
   return lastAnalysis;
 }
 
-const payload = (extra = {}) => ({ assay: SEED.assay, ...run, analysis: lastAnalysis, ...extra });
+function guideView() {
+  const p = PROTOCOLS[run.guide.protocol];
+  return { name: p.name, step: run.guide.step, titles: p.steps.map((s) => s.title) };
+}
+
+const payload = (extra = {}) => ({ assay: SEED.assay, ...run, guide: guideView(), analysis: lastAnalysis, ...extra });
+
+// What the agent hears about one step. Everything comes from the protocol file, nothing invented.
+function describeStep(p, i, { withSafety = false } = {}) {
+  const s = p.steps[i];
+  const terms = Object.entries(s.terms ?? {}).map(([t, d]) => `${t}: ${d}`).join(' ');
+  return [
+    withSafety ? `Safety first: ${p.safety.join(' ')}` : '',
+    `Step ${i + 1} of ${p.steps.length}: ${s.title}.`,
+    `Instruction: ${s.instruction}`,
+    `Why (only if they ask, or explain simply if they seem unsure): ${s.why}`,
+    terms ? `Terms: ${terms}` : '',
+    `Checkpoint before moving on: ${s.checkpoint}`,
+    s.data_collection
+      ? 'This is the data step. From now on, log every reading they say with log_reading.'
+      : 'Explain the instruction simply in one or two sentences, then wait for them to say they are done.',
+  ].filter(Boolean).join('\n');
+}
 
 const app = express();
 app.use(express.json());
@@ -143,6 +181,42 @@ app.post('/api/finish', async (req, res) => {
     console.error(err.message);
     res.json({ agent: `Could not save the run: ${err.message}`, ...payload() });
   }
+});
+
+// Tool: protocol_step. Guided Lab Mentor Mode. The server, not the AI, decides whether
+// the student may move on: "next" only works once they confirmed the checkpoint.
+app.post('/api/step', (req, res) => {
+  const action = String(req.body?.action ?? 'current').toLowerCase();
+  const confirmed = req.body?.confirmed === true || req.body?.confirmed === 'true';
+  const p = PROTOCOLS[run.guide.protocol];
+  const last = p.steps.length - 1;
+  let step = run.guide.step;
+  let text;
+
+  if (action === 'start' || step === null) {
+    step = 0;
+    text = `Starting the ${p.name}. ${p.summary}\n${describeStep(p, 0, { withSafety: true })}`;
+  } else if (action === 'next') {
+    if (!confirmed) {
+      text = `Not moving on yet. First ask them to confirm: "${p.steps[step].checkpoint}" Call protocol_step with action "next" and confirmed true only after they say yes.`;
+    } else if (step >= last) {
+      text = `They have finished all ${p.steps.length} steps. If they have not read the plate yet, remind them to read each value to you.`;
+    } else {
+      step += 1;
+      text = describeStep(p, step);
+    }
+  } else if (action === 'back') {
+    step = Math.max(0, step - 1);
+    text = `Going back.\n${describeStep(p, step)}`;
+  } else {
+    // repeat / current / explain
+    text = describeStep(p, step);
+  }
+
+  run.guide.step = step;
+  save();
+  console.log(`Protocol step: ${action}${confirmed ? ' (confirmed)' : ''} -> ${step + 1}/${p.steps.length}`);
+  res.json({ agent: text, ...payload() });
 });
 
 // Demo helper: back to the six standards, no samples.

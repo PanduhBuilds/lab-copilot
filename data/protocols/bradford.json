@@ -1,0 +1,70 @@
+{
+  "id": "bradford",
+  "name": "Bradford protein assay",
+  "summary": "Measures how much protein is in each sample. Protein turns the blue Bradford dye a deeper blue, and the plate reader measures how much light at 595 nm the color absorbs. Known standards make a curve; the samples are read against that curve.",
+  "source": "Teaching-lab protocol (demo version). Follow your own lab's approved protocol if it differs.",
+  "safety": [
+    "Wear gloves, goggles and a lab coat the whole time.",
+    "Bradford reagent contains phosphoric acid and methanol: avoid skin contact and don't breathe it in.",
+    "Tell your supervisor about any spill, cut or splash right away."
+  ],
+  "steps": [
+    {
+      "title": "Get set up",
+      "instruction": "Put on gloves, goggles and a lab coat. Get your 96-well plate, a P200 and a P20 pipette with tips, the Bradford reagent, the BSA standards, and your 8 samples on ice.",
+      "why": "Having everything within reach means you never walk away mid-step, and the PPE protects you from the acidic reagent.",
+      "terms": { "PPE": "Personal protective equipment: gloves, goggles, lab coat.", "BSA": "Bovine serum albumin, a cheap protein used as the known reference.", "P200 / P20": "Pipettes that measure up to 200 or 20 microliters." },
+      "checkpoint": "Gloves, goggles and lab coat are on, and all materials are at the bench."
+    },
+    {
+      "title": "Let the reagent warm up",
+      "instruction": "Take the Bradford reagent out of the fridge and let it sit at room temperature for about 10 minutes. Swirl it gently; don't shake it.",
+      "why": "Cold reagent reacts more slowly and gives lower readings. Shaking makes bubbles that throw off the plate reader.",
+      "terms": { "Room temperature": "About 20 to 25 degrees Celsius." },
+      "checkpoint": "The reagent bottle no longer feels cold."
+    },
+    {
+      "title": "Label the plate map",
+      "instruction": "On paper or your lab notebook, plan the plate: standards 0, 0.25, 0.5, 1, 1.5 and 2 mg/mL in column 1, rows A to F. Samples 1 to 8 in column 2, rows A to H.",
+      "why": "A plate map stops you from mixing up wells. Most wrong results come from putting a sample in the wrong well.",
+      "terms": { "Well": "One of the small cups in the plate.", "mg/mL": "Milligrams of protein per milliliter: how concentrated the protein is." },
+      "checkpoint": "The plate map is written down."
+    },
+    {
+      "title": "Add the standards",
+      "instruction": "Using the P20, add 5 microliters of each BSA standard to its well in column 1. Use a fresh tip for every standard.",
+      "why": "The standards have known amounts of protein. Their readings build the curve that turns your samples' readings into real concentrations.",
+      "terms": { "Microliter": "One millionth of a liter. 5 microliters is a tiny drop.", "Standard curve": "A line drawn through readings of known amounts, used to work out unknown amounts." },
+      "checkpoint": "Six standard wells are filled, each with a fresh tip."
+    },
+    {
+      "title": "Add the samples",
+      "instruction": "Using the P20, add 5 microliters of each sample to its well in column 2. Fresh tip every time.",
+      "why": "Same volume as the standards, so the samples can be compared directly to the curve. Fresh tips keep samples from contaminating each other.",
+      "terms": { "Contamination": "When a bit of one sample gets into another and changes its reading." },
+      "checkpoint": "Eight sample wells are filled, each with a fresh tip."
+    },
+    {
+      "title": "Add the Bradford reagent",
+      "instruction": "Using the P200, add 250 microliters of Bradford reagent to every filled well. Pipette up and down gently 2 or 3 times to mix, without making bubbles.",
+      "why": "The dye binds to protein and turns bluer. Mixing makes the color even across the well.",
+      "terms": { "Pipette up and down": "Draw the liquid into the tip and push it back out to mix." },
+      "checkpoint": "Every filled well has reagent and no visible bubbles."
+    },
+    {
+      "title": "Wait 5 minutes",
+      "instruction": "Let the plate sit on the bench for 5 minutes, away from direct light. Read it within the next 55 minutes.",
+      "why": "The color needs about 5 minutes to develop fully. After an hour it starts to fade and readings drift.",
+      "terms": { "Incubate": "Let it sit for a set time so the reaction can happen." },
+      "checkpoint": "At least 5 minutes have passed since adding reagent."
+    },
+    {
+      "title": "Read the plate",
+      "instruction": "Put the plate in the reader and measure absorbance at 595 nanometers. Then read each value out loud to me, like 'sample 3, 0.44'. I'll log it, work out the protein, and tell you if anything looks wrong.",
+      "why": "Absorbance is how much light the colored liquid blocks. More protein means more color, which means higher absorbance.",
+      "terms": { "Absorbance": "How much light a liquid absorbs. Written as A595 at 595 nm.", "Nanometer": "A unit for the wavelength (color) of light. 595 nm is orange light, which blue dye absorbs." },
+      "checkpoint": "The plate reader shows values for every well.",
+      "data_collection": true
+    }
+  ]
+}

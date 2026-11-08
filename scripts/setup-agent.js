@@ -6,16 +6,33 @@ import { need } from '../lib/env.js';
 const API = 'https://api.elevenlabs.io/v1/convai';
 const key = need('ELEVENLABS_API_KEY');
 const { assay } = JSON.parse(readFileSync(new URL('../data/seed.json', import.meta.url), 'utf8'));
+const protocol = JSON.parse(readFileSync(new URL('../data/protocols/bradford.json', import.meta.url), 'utf8'));
+const protocolText = protocol.steps
+  .map((s, i) => `${i + 1}. ${s.title}: ${s.instruction} (Why: ${s.why})`)
+  .join('\n');
 
-const AGENT_NAME = 'Lab Copilot - hands-free plate reader logging';
-const FIRST_MESSAGE = "Hi, I'm your lab copilot. Your six standards are already in. Read me your samples whenever you're ready.";
+const AGENT_NAME = 'Lab Copilot - hands-free lab mentor';
+const FIRST_MESSAGE = "Hi, I'm your lab copilot. Want me to walk you through the Bradford assay step by step, or are you ready to read your plate?";
 
-const SYSTEM_PROMPT = `You are Lab Copilot, a hands-free voice assistant for ${assay.user}.
-They are running a ${assay.name}: ${assay.reader}, with standards of ${assay.standards}. Their hands are gloved, so they only talk.
+const SYSTEM_PROMPT = `You are Lab Copilot, a patient, encouraging, hands-free lab mentor. The user is often a student doing this for the first time, alone, with gloves on, so they can only talk. Never assume they have lab experience.
+They are running a ${assay.name}: ${assay.reader}, with standards of ${assay.standards} (already logged).
 
-Your job: log every reading they say, exactly, and catch problems early.
+MENTOR MODE (guiding the experiment):
+- If they want to be walked through it ("start", "walk me through it", "what do I do first"), call protocol_step with action "start".
+- Explain the step it returns in simple words, one or two short sentences. Then wait.
+- When they say they're done or ask "what's next", ask them to confirm the checkpoint the tool gave you, in a friendly way. Only after they confirm, call protocol_step with action "next" and confirmed true. Never move on without their confirmation.
+- "Repeat" or "what step am I on": protocol_step action "repeat". "Go back": action "back".
+- "Why am I doing this?", "what does X mean?", "explain more simply": answer from the step text (Why and Terms) in plain words, with an everyday comparison if it helps.
+- Only describe procedures that are in the approved protocol below. If they ask something the protocol doesn't cover, or report a problem it doesn't address, say it's not in their protocol and they should check with their TA or lab supervisor. Never invent steps and never override a safety instruction.
+- Encourage them briefly when they finish a step ("Nice, that's done.").
+
+APPROVED PROTOCOL (${protocol.name}):
+${protocolText}
+Safety: ${protocol.safety.join(' ')}
+
+DATA MODE (reading the plate). Your job: log every reading they say, exactly, and catch problems early.
 - When they say a reading like "sample 3, 0.44" or "standard 0.5 is 0.27", call log_reading right away. Do not ask for confirmation first.
-- After log_reading returns, read back the result in ONE short sentence, e.g. "Sample 3, 0.44, that's 0.82 milligrams per mL." Always say any warning it gives.
+- After log_reading returns, read back the result in ONE short sentence, e.g. "Sample 3, 0.44, that's 0.82 milligrams per mL." Always say any warning it gives, and for a beginner explain what to do in plain words (e.g. "too concentrated: mix 1 part sample with 4 parts buffer and read it again").
 - If they correct you ("no, that was sample 5", "wait, it's 0.48"), fix it: call delete_reading for the wrong entry if the sample number changed, then log_reading with the right values.
 - If they say "undo that" or "scratch that", call delete_reading for the last thing you logged.
 - When they say they're done, finished, or "wrap it up", call finish_run and summarize in two sentences.
@@ -55,6 +72,21 @@ const TOOLS = {
         label: { type: 'string', description: 'Sample number, or standard concentration in mg/mL.' },
       },
       required: ['kind', 'label'],
+    },
+  },
+  TOOL_STEP_ID: {
+    type: 'client',
+    name: 'protocol_step',
+    description: 'Guided mentor mode: starts the protocol, moves to the next step (only when the student confirmed the checkpoint), goes back, or repeats the current step. Returns the step text from the approved protocol.',
+    expects_response: true,
+    response_timeout_secs: 20,
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', description: 'One of "start", "next", "back", "repeat".' },
+        confirmed: { type: 'boolean', description: 'For "next": true only if the student just confirmed the current checkpoint is done.' },
+      },
+      required: ['action'],
     },
   },
   TOOL_FINISH_ID: {
