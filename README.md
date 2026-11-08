@@ -5,7 +5,9 @@
 Built at the **SDxSDSU Voice Agent Hackathon** (Nov 8, 2026) by Team 12: [names].
 Powered by **ElevenLabs** (the voice and the agent) and **Daytona** (runs the circuit analysis in a secure sandbox).
 
-**Track:** [Learning and Careers / Open] · **User:** an SDSU engineering student in an intro circuits lab, a multimeter probe in each hand · **Finish line:** guided through the Ohm's law lab by voice, all 4 resistors measured and logged hands-free, the wrong part and the loose wire caught and explained out loud, and the lab results file saved.
+**Track:** Learning and Careers · **User:** an SDSU engineering student in an intro circuits lab, a multimeter probe in each hand · **Finish line:** guided through the Ohm's law lab by voice, all 4 resistors measured and logged hands-free, the wrong part and the loose wire caught and explained out loud, and the lab report saved.
+
+**Demo lab:** Ohm's law (V = I × R): the student measures the current through and the voltage across four resistors (220 Ω, 470 Ω, 1 kΩ, 2.2 kΩ) at 5 V, adapted from the Ohm's law and color code exercises in James M. Fiore's *Laboratory Manual for DC Electrical Circuit Analysis*.
 
 ---
 
@@ -17,7 +19,9 @@ In circuits lab, both of your hands are busy holding multimeter probes, so you c
 - "Walk me through it." … "I'm done." … "Why am I doing this?"
 - "Resistor 3, 4.99 volts, 1.06 milliamps." → *"R3 measures 4.7k but should be 1k. Looks like yellow-violet-red instead of brown-black-red. Check the color bands."*
 - "Resistor 4, 4.98 volts, zero milliamps." → *"No current is flowing. Check for a loose jumper or a lead in the wrong breadboard row."*
-- "Wait, that was resistor 2, not 3." · "Undo that." · "Wrap it up."
+- "Wait, that was resistor 2, not 3." · "Undo that."
+- "Wrap it up." → saves the lab report (theory vs. measured, % deviation, chart, issues caught).
+- "¿Qué hago ahora?" → it switches to Spanish.
 
 ## Why it matters
 
@@ -38,6 +42,8 @@ You speak  →  ElevenLabs agent (hears you, decides what to do)
 2. **Agent decides:** it calls one of four tools: `protocol_step` (guided steps), `log_reading`, `delete_reading` (undo and corrections), `finish_run`.
 3. **Daytona does the work:** our server sends the readings to a Daytona sandbox, where Python computes each resistance (R = V / I), checks it against the color-band value and ±5% tolerance, detects open and short circuits, checks power against the resistor's rating, identifies which resistor you probably used instead (nearest standard E12 value plus its color bands), and draws the voltage-current chart. Each reading takes under a second, using Daytona's stateful code interpreter.
 4. **Voice out:** the agent explains the result in one or two sentences, and the page shows the live resistor cards, chart and progress.
+
+**Lab report:** on "wrap it up," `lib/report.js` writes a Markdown lab report (objective, equipment, a data table of theoretical vs. measured current with percent deviation, the V–I chart, issues caught, observations), saved with the CSV and chart and opened as a clean page from the "Open lab report" button.
 
 **Guided Lab Mentor Mode:** the procedure lives in `data/protocols/ohms-law.json` (steps, plain-language explanations, terms, safety notes, checkpoints). The server, not the AI, tracks the current step and refuses to move on until the student confirms the checkpoint. Answers stay grounded in the approved procedure. If something isn't covered, the agent says so and points the student to their TA instead of making things up. Adding another lab means adding another protocol file.
 
@@ -82,6 +88,6 @@ npm run dev            # open http://localhost:3000
 | Name | What they did |
 |---|---|
 | Matt Teixeira | Product, build, voice testing, demo |
-| [name] | Backend: lab results report |
+| [name] | Backend and testing |
 | [name] | Pitch and Loom script |
-| [name] | Research and README |
+| [name] | Research (lab manuals) and UI design |

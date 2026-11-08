@@ -24,10 +24,17 @@ The "Best ElevenLabs build" prize looks at a knowledge base, custom voices, more
 
 ## What we're building
 
-- **Track:** Learning and Careers (or Open)
+- **Track:** Learning and Careers
+- **Demo lab:** Ohm's law (V = I × R): measure 4 resistors at 5 V, adapted from James M. Fiore's *Laboratory Manual for DC Electrical Circuit Analysis* (CC BY-NC-SA)
 - **User:** an SDSU engineering student in an intro circuits lab, a multimeter probe in each hand
 - **Problem:** both hands are on the probes, so students can't type or check the handout. They mix up identical-looking resistors and wire into the wrong breadboard row, and often only find out after the lab. TAs answer the same "why doesn't my circuit work?" questions all session.
-- **Finish line:** guided through the Ohm's law lab by voice, all 4 resistors measured and logged hands-free, the wrong part and the loose wire caught and explained out loud, and the lab results file saved.
+- **Finish line:** guided through the Ohm's law lab by voice, all 4 resistors measured and logged hands-free, the wrong part and the loose wire caught and explained out loud, and the lab report saved.
+
+**One-line pitch:** "Lab Copilot catches your mistake the moment you make it, tells you exactly what to fix, and fills in your lab report while your hands stay on the probes."
+
+**How it's built (one line):** "ElevenLabs is the voice and the brain. Daytona runs the real math safely in a sandbox. We built it today with Claude Code as our coding partner."
+
+**Pitch document (share link):** https://claude.ai/artifact/GFZM9hJwNUWREXuRnBdewf
 
 **Pattern:** voice in → the agent decides → Daytona does the real work → voice out.
 
@@ -40,30 +47,34 @@ client tools (log_reading, delete_reading, protocol_step, finish_run)
       └── POST /api/... ──► server.js ──► Daytona sandbox (Ohm's law, tolerance, open/short, power, chart)
 ```
 
-- **ElevenLabs:** the voice agent. Private agent; the browser only gets a short-lived token.
+- **ElevenLabs:** the voice agent. Private agent (the browser only gets a short-lived token). Language detection with a Spanish preset, patient turn-taking, lab-vocabulary speech recognition keywords.
 - **Daytona:** computes R = V / I for each resistor, checks it against the color bands and ±5% tolerance, detects open and short circuits, checks power against the 0.25 W rating, guesses the resistor actually used (nearest E12 value + color bands) and draws the V–I chart. It uses the stateful code interpreter, so each reading takes under 1 s.
 - **Protocols** live in `data/protocols/*.json`. Adding a lab means adding a file.
-- **Mentor Mode:** the server tracks the current step and refuses "next" until the student confirms the checkpoint.
+- **Mentor Mode:** the server tracks the current step and refuses "next" until the student confirms the checkpoint. Steps and safety follow the Fiore manual (exercises 1, 3, 4 and Appendix D).
+- **Lab report:** `lib/report.js` builds a Markdown report on "wrap it up" (data table with theory vs. measured current and % deviation, chart, issues, observations). Saved in `results/` with the CSV and chart; viewable at `/report/<file>` via the "Open lab report" button.
+- **UI:** dark instrument-panel look: voice orb (pulses while listening, bars while speaking), a big Now card (step, reading, problem caught, lab complete), resistor cards drawn with real color bands, progress bar, V–I chart.
 
 ### Commands (in `~/Desktop/lab-copilot`)
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Runs the app at http://localhost:3000 |
+| `npm run dev` | Runs the app at http://localhost:3000 (now `node --watch server.js`; the old watcher stopped noticing changes) |
 | `npm run setup` | Creates or updates the agent and its tools after a prompt change |
 | `npm run cleanup` | Deletes leftover Daytona sandboxes (run at the end of the day) |
 
 Pushing: commit, then click **Push origin** in GitHub Desktop.
+
+The server runs in the Terminal tab **"lab copilot server"**. If a change doesn't show up, stop it with Ctrl+C and run `npm run dev` again. Protocol and seed files only load at startup.
 
 ## Who's doing what
 
 | Person | Job |
 |---|---|
 | Matt | Runs the app on his laptop, voice tests, drives the Loom |
-| Backend teammate | `lib/report.js`: the Markdown results report (due 2:45), now using `analysis.parts` (circuits fields) |
-| Teammate | Loom script |
-| Teammate | README draft (track, user, finish line, problem, how it works) |
-| Claude | Agent, server, Daytona analysis, Mentor Mode, wiring it together |
+| Backend teammate | Was on `lib/report.js`; Claude built it at 2:30 instead, so he's helping with the Loom and README |
+| Pitch teammate | Pitch, Loom script (from the pitch document) |
+| Teammate | Research (found the Fiore DC lab manual and a robotics lab manual) and the UI design from Grok/Cursor |
+| Claude | Agent, server, Daytona analysis, Mentor Mode, lab report, UI, README and pitch document |
 
 ### Message sent to the backend teammate
 
@@ -72,6 +83,8 @@ Pushing: commit, then click **Push origin** in GitHub Desktop.
 > Your job: `lib/report.js` (only you touch it). Export `buildReport(run, analysis)` that returns Markdown: assay name, date and time, curve equation and R², a sample table (well, A595, protein mg/mL, flag), mean and SD of good samples, and a "Needs attention" list. Input shapes: `data/seed.json` and the JSON at the bottom of the Python in `lib/analyze.js`.
 >
 > Rules: only edit `lib/report.js` and new files. Fetch and Pull before pushing. Commit small and often. Never put keys in code or the chat. Pushed by 2:45.
+
+(This was for the Bradford version. The circuits report was built by Claude at 2:30 instead.)
 
 ## Test scripts (say these out loud)
 
@@ -83,7 +96,8 @@ Pushing: commit, then click **Push origin** in GitHub Desktop.
 4. "Resistor 3, 4.99 volts, 1.06 milliamps" → **wrong part**: 4.7k instead of 1k (yellow-violet-red vs brown-black-red)
 5. "Resistor 4, 4.98 volts, zero milliamps" → **open circuit**: loose jumper or wrong row
 6. "Fixed it. Resistor 4, 4.98 volts, 2.25 milliamps" → 2.21k, OK
-7. "Wrap it up" → CSV + chart saved, Lab complete card
+7. "Wrap it up" → lab report + CSV + chart saved, Lab complete card → click **Open lab report**
+8. Optional: "¿Qué hago ahora?" → answers in Spanish; "back to English"
 
 Result: passed by voice at about 2:05 PM (circuits version). Earlier Bradford tests also passed (logging, corrections, Mentor Mode, refusing the microwave question, asking to confirm a misheard "sample 10.41").
 
@@ -110,6 +124,13 @@ Tips: say readings with small pauses ("resistor one … four point nine eight vo
 | — | Skipped protocol upload for today | Time. The file format already makes new protocols a drop-in |
 | ~1:55 | Switched the lab from Bradford assay to a circuits (Ohm's law) lab | Nobody on the team has bio-lab experience; we're tech students and every engineering major takes circuits lab |
 | ~2:10 | UI redesign (instrument panel); asking Grok and Cursor for SDSU-colored inspiration | Judges see the Loom on a screen; a stronger look sells it. Only this Claude chat edits the code |
+| ~2:25 | Adopted the Fiore DC lab manual (procedure, safety, deviation formula); lab-report CSV columns | Real published procedure = credibility; the report table matches what lab handouts ask for |
+| ~2:25 | Spanish auto-detect + patient turn-taking + speech keywords | "Best ElevenLabs build" criteria; students pause while reading numbers |
+| ~2:25 | Robotics lab manual kept for the pitch only | AI-written spec for hardware we don't have; good "any lab" story |
+| ~2:30 | Built the lab report ourselves | Teammate's version wasn't ready; the finish line needs it |
+| ~2:40 | No wake word: one tap starts a session that listens for the whole lab | Wake words take time to build well; mention as "what's next" |
+| ~2:40 | Didn't raise ElevenLabs' max conversation length | Not needed for a 2-minute Loom |
+| — | Skipped: second lab, knowledge base upload, accessibility mode, voltage sweep, camera | Time; all listed as "what's next" |
 
 ## Timeline
 
@@ -118,9 +139,9 @@ Tips: say readings with small pauses ("resistor one … four point nine eight vo
 | 1:00 | ✅ First commit |
 | ~1:30 | ✅ v1 voice test passed, ✅ speed fix, ✅ Mentor Mode built |
 | ~2:15 | ✅ Circuits switch, ✅ UI redesign, ✅ README draft |
-| Next | UI inspiration from Grok/Cursor → apply; Loom audio test; teammate report |
-| By 2:45 | Teammate's report wired in |
-| 2:45–3:30 | Optional: ElevenLabs knowledge base, Spanish, turn-taking tuning; practice runs |
+| ~2:30 | ✅ Fiore procedure, ✅ Spanish + turn-taking, ✅ lab report, ✅ pitch document |
+| By 3:00 | Teammate's UI design → apply (or keep the current look) |
+| 3:00–3:30 | Full voice run-throughs, bug fixes only; Loom audio test |
 | **3:30** | **Feature freeze** |
 | 3:30–3:50 | README finished, final push |
 | 3:50–4:10 | Record the Loom (2–3 takes) |
@@ -128,11 +149,11 @@ Tips: say readings with small pauses ("resistor one … four point nine eight vo
 
 ## Loom plan (2:00 max)
 
-1. **~15 s problem:** "Circuits lab: a probe in each hand, so you can't type, check the handout, or write things down."
+1. **~15 s problem + lab:** "Circuits lab: a probe in each hand, so you can't type, check the handout, or write things down. Today's demo is the classic first circuits lab: Ohm's law, measuring four resistors at 5 volts."
 2. **~20 s Mentor Mode:** "Walk me through it" → one step → "why am I doing this?"
 3. **~50 s data:** R1 OK → R3 wrong part caught → R4 open circuit → fix → R4 OK; interrupt it once
-4. **~15 s finish:** "Wrap it up" → Lab complete + results file
-5. **~20 s how and who:** "ElevenLabs is the voice, Daytona runs the circuit math safely. Every engineering student takes circuits lab."
+4. **~15 s finish:** "Wrap it up" → Lab complete → Open lab report
+5. **~20 s how and who:** "ElevenLabs is the voice, Daytona runs the circuit math safely. Every engineering student takes circuits lab. Next: any lab from its handout, and a live TA dashboard."
 
 ## After the hackathon
 
@@ -140,3 +161,4 @@ Tips: say readings with small pauses ("resistor one … four point nine eight vo
 - Run `npm run cleanup`.
 - Delete the unused "Sunny" agent and the practice agent in ElevenLabs; trash the `senior-checkin` folder.
 - Decide whether to keep the ElevenLabs Creator plan before it renews.
+- Send the project details to the Resume hub for `achievements.md`.
