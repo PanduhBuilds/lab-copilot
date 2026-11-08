@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab Copilot</title>
+  <style>
+    :root {
+      --bg: #f2f5f6; --card: #ffffff; --text: #1b2326; --muted: #5f6d72; --line: #dde4e7;
+      --blue: #2a6f97; --blue-soft: #e3eef5; --amber: #edae49; --amber-soft: #fbf1dc;
+      --red: #d1495b; --red-soft: #fbe5e8; --green: #2f8a57; --green-soft: #e2f3e9;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #11171a; --card: #1a2226; --text: #eaf0f2; --muted: #9aa8ad; --line: #2c373c;
+        --blue-soft: #16303f; --amber-soft: #3a2d12; --red-soft: #3d1c21; --green-soft: #173325; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { padding: 20px 24px 0; max-width: 1280px; margin: 0 auto; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 26px; }
+    header p { margin: 0; color: var(--muted); }
+    main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+    h2 { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    button { font: inherit; border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; background: var(--blue); color: #fff; font-weight: 700; }
+    button.stop { background: var(--red); }
+    button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 14px; font-weight: 500; font-size: 14px; }
+    button:disabled { opacity: .5; cursor: default; }
+    .pill { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    .pill.on { color: var(--green); border-color: var(--green); }
+    #log { display: grid; gap: 8px; min-height: 280px; max-height: 56vh; overflow-y: auto; align-content: start; }
+    .msg { padding: 8px 12px; border-radius: 12px; max-width: 88%; }
+    .msg.user { justify-self: end; background: var(--blue); color: #fff; }
+    .msg.agent { background: var(--blue-soft); }
+    .msg.sys { color: var(--muted); font-size: 14px; padding: 2px 4px; }
+    .msg.tool { color: var(--muted); font-size: 13px; font-family: ui-monospace, Menlo, monospace; padding: 2px 4px; }
+    form { display: flex; gap: 8px; }
+    input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+    .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .head strong { font-size: 18px; }
+    .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+    .stat { background: var(--bg); border-radius: 10px; padding: 6px 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .stat b { font-size: 17px; }
+    #flags { display: grid; gap: 8px; }
+    .flag { border-radius: 10px; padding: 9px 14px; background: var(--red-soft); border: 1px solid var(--red); }
+    .flag::before { content: "⚠ "; color: var(--red); font-weight: 700; }
+    .allgood { border-radius: 10px; padding: 9px 14px; background: var(--green-soft); color: var(--green); font-weight: 600; }
+    #chart { width: 100%; border-radius: 10px; background: #fff; min-height: 140px; }
+    .daytona { font-size: 13px; color: var(--muted); }
+    .scroll { overflow-x: auto; max-height: 340px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    td:last-child { white-space: normal; }
+    th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; position: sticky; top: 0; background: var(--card); }
+    tr.bad td { background: var(--red-soft); }
+    tr.new td { animation: hl 2s ease-out; }
+    @keyframes hl { from { background: var(--amber-soft); } }
+    #files a { color: var(--blue); font-weight: 600; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🧪 Lab Copilot</h1>
+  <p>Read your plate out loud. It logs every value, fits the curve, and catches bad wells while your gloves stay on.</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Voice</h2>
+    <div class="bar">
+      <button id="toggle">Start session</button>
+      <span id="status" class="pill">not connected</span>
+      <span id="mode" class="pill" hidden></span>
+    </div>
+    <div id="log"></div>
+    <form id="typeForm">
+      <input id="typeBox" placeholder="Or type, e.g. sample 3, 0.44" disabled>
+      <button id="sendBtn" disabled>Send</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <div><h2>Plate run</h2><strong id="assay">Bradford protein assay · A595</strong></div>
+      <div class="stats" id="stats"></div>
+    </div>
+    <div id="flags"></div>
+    <img id="chart" alt="Standard curve with samples">
+    <div class="daytona" id="daytona">Fitting the standard curve in a Daytona sandbox…</div>
+    <div id="files"></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Well</th><th>A595</th><th>Protein (mg/mL)</th><th>Check</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <div class="bar"><button class="ghost" id="reset">Reset demo (keep standards only)</button></div>
+  </section>
+</main>
+
+<script src="/vendor/elevenlabs.js"></script>
+<script>
+  const { Conversation } = ElevenLabsClient;
+  const $ = (id) => document.getElementById(id);
+  let conversation = null;
+  let lastKey = null;
+
+  function addMessage(kind, text) {
+    const div = document.createElement('div');
+    div.className = `msg ${kind}`;
+    div.textContent = text;
+    $('log').append(div);
+    $('log').scrollTop = $('log').scrollHeight;
+  }
+
+  function el(tag, text, cls) {
+    const e = document.createElement(tag);
+    if (text != null) e.textContent = text;
+    if (cls) e.className = cls;
+    return e;
+  }
+
+  function render(s) {
+    const a = s.analysis;
+    if (s.assay) $('assay').textContent = `${s.assay.name} · ${s.assay.reader}`;
+
+    // Table: samples first (newest work), then standards.
+    const bySample = new Map((a?.samples ?? []).map((x) => [x.label, x]));
+    const samples = s.readings.filter((r) => r.kind === 'sample')
+      .sort((x, y) => Number(x.label) - Number(y.label));
+    const standards = s.readings.filter((r) => r.kind === 'standard')
+      .sort((x, y) => Number(x.label) - Number(y.label));
+    const rows = [];
+    for (const r of samples) {
+      const info = bySample.get(r.label);
+      const tr = el('tr', null, info?.flag ? 'bad' : '');
+      if (lastKey === `sample:${r.label}`) tr.classList.add('new');
+      tr.append(el('td', `Sample ${r.label}`), el('td', r.absorbance.toFixed(2)),
+        el('td', info?.conc != null ? info.conc.toFixed(2) : '—'), el('td', info?.flag ?? '✓'));
+      rows.push(tr);
+    }
+    for (const r of standards) {
+      const tr = el('tr');
+      if (lastKey === `standard:${r.label}`) tr.classList.add('new');
+      tr.append(el('td', `Standard ${r.label}`), el('td', r.absorbance.toFixed(2)), el('td', r.label), el('td', 'standard'));
+      rows.push(tr);
+    }
+    $('rows').replaceChildren(...rows);
+
+    if (!a) return;
+    const stats = [
+      ['Standards', a.n_standards], ['Samples', a.n_samples],
+      ['R²', a.fit ? a.fit.r2.toFixed(3) : '—'], ['Issues', a.flags.length],
+    ];
+    $('stats').replaceChildren(...stats.map(([k, v]) => {
+      const d = el('div', null, 'stat');
+      d.append(`${k} `, el('b', String(v)));
+      return d;
+    }));
+    $('flags').replaceChildren(...(a.flags.length
+      ? a.flags.map((f) => el('div', f, 'flag'))
+      : [el('div', a.n_samples ? 'All samples look good.' : 'Standards look good. Ready for samples.', 'allgood')]));
+    $('chart').src = a.chart;
+    $('daytona').textContent = `Curve fit, concentrations and outlier checks ran in a Daytona sandbox · ${(a.ms / 1000).toFixed(1)} s` +
+      (a.fit ? ` · y = ${a.fit.slope}x + ${a.fit.intercept}` : '');
+    $('files').replaceChildren(...(s.files?.length
+      ? [el('span', 'Results saved: '), ...s.files.flatMap((f, i) => {
+          const link = el('a', f); link.href = `/results/${f}`; link.target = '_blank';
+          return i ? [' · ', link] : [link];
+        })]
+      : []));
+  }
+
+  async function post(url, body) {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    return data;
+  }
+
+  function tool(name, url, keyOf) {
+    return async (params) => {
+      addMessage('tool', `→ ${name} ${JSON.stringify(params)}`);
+      $('daytona').textContent = 'Re-running the analysis in Daytona…';
+      try {
+        const s = await post(url, params);
+        lastKey = keyOf ? keyOf(params) : null;
+        render(s);
+        return s.agent;
+      } catch (err) {
+        return `That failed: ${err.message}`;
+      }
+    };
+  }
+
+  // Tools the agent can call. Names must match scripts/setup-agent.js.
+  const kindOf = (k) => (/stand|std/i.test(String(k)) ? 'standard' : 'sample');
+  const clientTools = {
+    log_reading: tool('log_reading', '/api/reading', (p) =>
+      `${kindOf(p.kind)}:${kindOf(p.kind) === 'standard' ? String(parseFloat(p.label)) : String(Number((String(p.label).match(/\d+/) || [''])[0]))}`),
+    delete_reading: tool('delete_reading', '/api/delete'),
+    finish_run: tool('finish_run', '/api/finish'),
+  };
+
+  function setConnected(on) {
+    $('toggle').textContent = on ? 'End session' : 'Start session';
+    $('toggle').classList.toggle('stop', on);
+    $('typeBox').disabled = $('sendBtn').disabled = !on;
+    $('mode').hidden = !on;
+  }
+
+  async function start() {
+    $('toggle').disabled = true;
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const res = await fetch('/api/token');
+      if (!res.ok) throw new Error(await res.text());
+      conversation = await Conversation.startSession({
+        conversationToken: await res.text(),
+        clientTools,
+        onConnect: () => { setConnected(true); addMessage('sys', 'Connected.'); },
+        onDisconnect: (d) => { setConnected(false); addMessage('sys', `Session ended (${d.reason}).`); conversation = null; },
+        onMessage: ({ role, message }) => addMessage(role === 'user' ? 'user' : 'agent', message),
+        onError: (m) => { console.error(m); addMessage('sys', `Error: ${m}`); },
+        onStatusChange: ({ status }) => { $('status').textContent = status; $('status').classList.toggle('on', status === 'connected'); },
+        onModeChange: ({ mode }) => { $('mode').textContent = mode === 'speaking' ? 'copilot speaking' : 'listening'; },
+      });
+    } catch (err) {
+      console.error(err);
+      addMessage('sys', `Could not start: ${err.message}`);
+    } finally {
+      $('toggle').disabled = false;
+    }
+  }
+
+  $('toggle').onclick = () => (conversation ? conversation.endSession() : start());
+  $('typeForm').onsubmit = (e) => {
+    e.preventDefault();
+    const text = $('typeBox').value.trim();
+    if (!text || !conversation) return;
+    conversation.sendUserMessage(text);
+    addMessage('user', text);
+    $('typeBox').value = '';
+  };
+  $('reset').onclick = async () => {
+    $('daytona').textContent = 'Resetting and re-fitting in Daytona…';
+    lastKey = null;
+    render(await post('/api/reset'));
+  };
+
+  (async () => {
+    const s = await (await fetch('/api/state')).json();
+    render(s);
+    if (!s.analysis) render(await post('/api/analyze'));
+  })().catch((err) => { $('daytona').textContent = `Analysis failed: ${err.message}`; });
+</script>
+</body>
+</html>

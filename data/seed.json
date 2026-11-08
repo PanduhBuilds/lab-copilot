@@ -1,0 +1,19 @@
+{
+  "assay": {
+    "name": "Bradford protein assay",
+    "reader": "plate reader at 595 nm, blank-subtracted",
+    "standards": "BSA at 0, 0.25, 0.5, 1, 1.5 and 2 mg/mL",
+    "user": "Sam, a biology grad student running the assay with gloved hands"
+  },
+  "readings": [
+    { "kind": "standard", "label": "0",    "absorbance": 0.0 },
+    { "kind": "standard", "label": "0.25", "absorbance": 0.14 },
+    { "kind": "standard", "label": "0.5",  "absorbance": 0.27 },
+    { "kind": "standard", "label": "1",    "absorbance": 0.52 },
+    { "kind": "standard", "label": "1.5",  "absorbance": 0.74 },
+    { "kind": "standard", "label": "2",    "absorbance": 0.95 }
+  ],
+  "demo_samples_to_read_aloud": {
+    "1": 0.41, "2": 0.38, "3": 0.44, "4": 1.32, "5": 0.40, "6": 0.36, "7": 0.43, "8": 0.39
+  }
+}

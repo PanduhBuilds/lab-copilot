@@ -1,0 +1,17 @@
+{
+  "name": "lab-copilot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hands-free voice copilot that logs plate-reader results and analyzes them in a Daytona sandbox.",
+  "scripts": {
+    "dev": "node --watch-path=server.js --watch-path=lib server.js",
+    "setup": "node scripts/setup-agent.js",
+    "cleanup": "node scripts/cleanup.js"
+  },
+  "dependencies": {
+    "@daytona/sdk": "^0.231.0",
+    "@elevenlabs/client": "^1.35.0",
+    "express": "^5.3.0"
+  }
+}
