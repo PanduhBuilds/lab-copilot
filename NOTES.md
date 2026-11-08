@@ -41,7 +41,7 @@ The "Best ElevenLabs build" prize looks at a knowledge base, custom voices, more
 ## How it works
 
 ```
-Browser (public/index.html) ── GET /api/token ──► server.js ──► ElevenLabs (short-lived token)
+Browser (public/index.html or public/console.html) ── GET /api/token ──► server.js ──► ElevenLabs (short-lived token)
 mic + speaker ◄════════ live voice session (WebRTC) ════════► ElevenLabs agent
 client tools (log_reading, delete_reading, protocol_step, finish_run)
       └── POST /api/... ──► server.js ──► Daytona sandbox (Ohm's law, tolerance, open/short, power, chart)
@@ -58,7 +58,7 @@ client tools (log_reading, delete_reading, protocol_step, finish_run)
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Runs the app at http://localhost:3000 (now `node --watch server.js`; the old watcher stopped noticing changes) |
+| `npm run dev` | Runs the app at http://localhost:3000 (original page) and http://localhost:3000/console.html (bench console: Home, big NEXT step, readouts, V–I plot, timeline). Now `node --watch server.js`; the old watcher stopped noticing changes |
 | `npm run setup` | Creates or updates the agent and its tools after a prompt change |
 | `npm run cleanup` | Deletes leftover Daytona sandboxes (run at the end of the day) |
 
@@ -130,6 +130,7 @@ Tips: say readings with small pauses ("resistor one … four point nine eight vo
 | ~2:30 | Built the lab report ourselves | Teammate's version wasn't ready; the finish line needs it |
 | ~2:40 | No wake word: one tap starts a session that listens for the whole lab | Wake words take time to build well; mention as "what's next" |
 | ~2:40 | Didn't raise ElevenLabs' max conversation length | Not needed for a 2-minute Loom |
+| ~3:00 | Second UI, `public/console.html`, built in a separate Claude session from the teammate's UI prompt; `index.html` left untouched as the fallback. SDSU scarlet in the chrome only; green/amber/red stay for data | Readable from across the bench (64px readouts, one NEXT instruction). Both pages share `/api/state` and the same four tools, so switching tabs loses nothing. Exception to the one-editor rule: new file only, committed at once |
 | — | Skipped: second lab, knowledge base upload, accessibility mode, voltage sweep, camera | Time; all listed as "what's next" |
 
 ## Timeline
@@ -140,7 +141,7 @@ Tips: say readings with small pauses ("resistor one … four point nine eight vo
 | ~1:30 | ✅ v1 voice test passed, ✅ speed fix, ✅ Mentor Mode built |
 | ~2:15 | ✅ Circuits switch, ✅ UI redesign, ✅ README draft |
 | ~2:30 | ✅ Fiore procedure, ✅ Spanish + turn-taking, ✅ lab report, ✅ pitch document |
-| By 3:00 | Teammate's UI design → apply (or keep the current look) |
+| 3:20 | ✅ `console.html` (bench console + Home view) pushed; tested with the Loom readings through the server. Still to try: the voice session started from that page, in Chrome |
 | 3:00–3:30 | Full voice run-throughs, bug fixes only; Loom audio test |
 | **3:30** | **Feature freeze** |
 | 3:30–3:50 | README finished, final push |
@@ -148,6 +149,8 @@ Tips: say readings with small pauses ("resistor one … four point nine eight vo
 | **4:15** | **Submit:** repo link, Loom, track, user, finish line |
 
 ## Loom plan (2:00 max)
+
+Record on http://localhost:3000/console.html: open **Home**, click **Start lab** (opens the console and starts the session). If the session won't start there, record on http://localhost:3000/ instead; the readings carry over.
 
 1. **~15 s problem + lab:** "Circuits lab: a probe in each hand, so you can't type, check the handout, or write things down. Today's demo is the classic first circuits lab: Ohm's law, measuring four resistors at 5 volts."
 2. **~20 s Mentor Mode:** "Walk me through it" → one step → "why am I doing this?"

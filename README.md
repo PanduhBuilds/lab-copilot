@@ -43,6 +43,8 @@ You speak  →  ElevenLabs agent (hears you, decides what to do)
 3. **Daytona does the work:** our server sends the readings to a Daytona sandbox, where Python computes each resistance (R = V / I), checks it against the color-band value and ±5% tolerance, detects open and short circuits, checks power against the resistor's rating, identifies which resistor you probably used instead (nearest standard E12 value plus its color bands), and draws the voltage-current chart. Each reading takes under a second, using Daytona's stateful code interpreter.
 4. **Voice out:** the agent explains the result in one or two sentences, and the page shows the live resistor cards, chart and progress.
 
+**Two views of the same lab:** `/` is the original page with the conversation log; `/console.html` is the bench console, built to be read from across the lab bench: one big NEXT instruction, large voltage / current / resistance / error / status readouts, the four resistor cards, a V–I plot, a run timeline and a Home screen with the guided steps. Both read the same state and use the same four tools.
+
 **Lab report:** on "wrap it up," `lib/report.js` writes a Markdown lab report (objective, equipment, a data table of theoretical vs. measured current with percent deviation, the V–I chart, issues caught, observations), saved with the CSV and chart and opened as a clean page from the "Open lab report" button.
 
 **Guided Lab Mentor Mode:** the procedure lives in `data/protocols/ohms-law.json` (steps, plain-language explanations, terms, safety notes, checkpoints). The server, not the AI, tracks the current step and refuses to move on until the student confirms the checkpoint. Answers stay grounded in the approved procedure. If something isn't covered, the agent says so and points the student to their TA instead of making things up. Adding another lab means adding another protocol file.
@@ -68,7 +70,7 @@ ElevenLabs Agents (`@elevenlabs/client`), Daytona SDK (`@daytona/sdk`), Node.js 
 npm install
 cp .env.example .env   # add your own ELEVENLABS_API_KEY and DAYTONA_API_KEY
 npm run setup          # creates the agent and its tools, saves the IDs to .env
-npm run dev            # open http://localhost:3000
+npm run dev            # open http://localhost:3000 (or /console.html for the bench console)
 ```
 
 `npm run cleanup` deletes any leftover Daytona sandboxes. Never commit `.env`; it's in `.gitignore`.
