@@ -216,7 +216,8 @@ app.post('/api/finish', async (req, res) => {
     res.json({
       agent: `Lab report saved, with the data table and the voltage-current chart. ${a.n_measured} of ${a.n_parts} resistors measured, ` +
         `${a.n_ok} within tolerance` + (a.avg_error_pct != null ? ` (average error ${a.avg_error_pct}%)` : '') + `. ` +
-        (a.flags.length ? `Still open: ${a.flags.join(' ')}` : 'No open issues.'),
+        (a.flags.length ? `Still open: ${a.flags.join(' ')}` : 'No open issues.') +
+        ' Summarize this in two short sentences, then say a brief goodbye. The session ends automatically after that.',
       ...payload(),
     });
   } catch (err) {

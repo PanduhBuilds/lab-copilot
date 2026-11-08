@@ -318,7 +318,7 @@ function diff(s) {
   }
   for (const l of Object.keys(was)) if (!now[l]) addEvent('fix', `Removed <s>R${l} ${was[l].volts} V · ${was[l].milliamps} mA</s>`);
   if (s.guide?.step !== prev.guide?.step && s.guide?.step != null) addEvent('step', `Step ${s.guide.step + 1}: ${s.guide.titles[s.guide.step]}`);
-  if ((s.files?.length || 0) > (prev.files?.length || 0)) { addEvent('ok', `Lab saved: ${s.files.length} files`); showDone(s); }
+  if (s.files?.length && s.files[0] !== prev.files?.[0]) { addEvent('ok', `Lab saved: ${s.files.length} files`); showDone(s); }
 }
 
 // ---------- Alerts ----------
@@ -417,8 +417,10 @@ function showDone(s) {
   $('doneRun').textContent = RUN_ID; $('doneSub').textContent = `${a.n_measured} of ${a.n_parts} resistors measured · ${a.n_ok} within tolerance · ${$('timer').textContent} elapsed`;
   $('dM').textContent = a.n_measured; $('dOk').textContent = a.n_ok; $('dBad').textContent = a.parts.filter((p) => p.flag).length; $('dErr').textContent = a.avg_error_pct ?? '—';
   $('doneRows').innerHTML = a.parts.map((p) => { const sev = sevOf(p); return `<div class="j"><span>R${p.label} · ${p.bands}</span><span class="n">${p.volts != null ? `${p.volts.toFixed(2)} V · ${p.milliamps} mA` : '—'}</span><span class="n">${p.measured != null ? fmtOhms(p.measured) + ' Ω' : '—'} ${p.error_pct != null ? `(${fmtPct(p.error_pct)}%)` : ''}</span><span class="badge ${sev}">${sevIcon[sev]} ${sevWord[sev]}</span></div>`; }).join('');
-  $('doneActs').innerHTML = (s.files || []).map((f, i) => `<a class="pill ${i ? '' : 'primary'}" href="${fileHref(f)}" target="_blank">${fileLabel(f)}</a>`).join('') + `<button class="pill" id="backBtn">Back to console</button>`;
+  $('doneActs').innerHTML = (s.files || []).map((f, i) => `<a class="pill ${i ? '' : 'primary'}" href="${fileHref(f)}" target="_blank">${fileLabel(f)}</a>`).join('') +
+    `<button class="pill danger" id="stopVoiceBtn"${conversation ? '' : ' hidden'}>Stop voice agent</button><button class="pill" id="backBtn">Back to console</button>`;
   $('backBtn').onclick = () => showView('console');
+  $('stopVoiceBtn').onclick = () => stopVoice('Voice agent stopped. Lab complete.');
   $('home').classList.remove('show');
   $('console').style.display = 'none'; $('done').classList.add('show');
 }
@@ -437,10 +439,31 @@ const resistorOf = (p) => String(Number((String(p.resistor ?? '').match(/\d+/) |
 function tool(url) {
   return async (params) => {
     $('daytona').classList.add('busy'); setVoice('processing', $('vText').innerHTML);
-    try { const s = await post(url, params); if (params?.resistor) latest = resistorOf(params); render(s); return s.agent; }
+    try {
+      const s = await post(url, params); if (params?.resistor) latest = resistorOf(params); render(s);
+      // After "wrap it up": let the agent finish reading the summary, then stop the voice session.
+      if (url === '/api/finish' && s.files?.length) armAutoStop();
+      return s.agent;
+    }
     catch (err) { setVoice('attention', `That failed: ${err.message}`); return `That failed: ${err.message}`; }
     finally { $('daytona').classList.remove('busy'); }
   };
+}
+// ---------- Stop the voice agent at the end of the lab ----------
+let autoStop = null; // { spoke: bool, timer }
+function stopVoice(message) {
+  if (autoStop) { clearTimeout(autoStop.timer); autoStop = null; }
+  if (!conversation) return;
+  const c = conversation;
+  c.endSession();
+  setVoice('offline', message);
+  const b = document.getElementById('stopVoiceBtn'); if (b) b.hidden = true;
+}
+function armAutoStop() {
+  if (!conversation) return;
+  if (autoStop) clearTimeout(autoStop.timer);
+  // Safety net: stop after 20 s even if we never see the summary finish.
+  autoStop = { spoke: false, timer: setTimeout(() => stopVoice('Lab complete. Voice agent stopped.'), 20000) };
 }
 const clientTools = { log_reading: tool('/api/reading'), delete_reading: tool('/api/delete'), finish_run: tool('/api/finish'), protocol_step: tool('/api/step') };
 function say(text) { if (!conversation) return; conversation.sendUserMessage(text); setVoice('processing', `“${text}”`); }
@@ -452,10 +475,24 @@ async function start() {
     conversation = await ElevenLabsClient.Conversation.startSession({
       conversationToken: await res.text(), clientTools,
       onConnect: () => { $('connectBtn').textContent = 'End session'; $('connectBtn').classList.replace('primary', 'danger'); setVoice('listening', 'Say "walk me through it", or read a resistor: "resistor 1, 4.98 volts, 22.4 milliamps".'); },
-      onDisconnect: (d) => { conversation = null; $('connectBtn').textContent = 'Start session'; $('connectBtn').classList.replace('danger', 'primary'); setVoice('offline', `Session ended (${d.reason}).`); },
+      onDisconnect: (d) => {
+        const wasAuto = !!autoStop || $('voice').dataset.state === 'offline';
+        conversation = null; if (autoStop) { clearTimeout(autoStop.timer); autoStop = null; }
+        $('connectBtn').textContent = 'Start session'; $('connectBtn').classList.replace('danger', 'primary');
+        const b = document.getElementById('stopVoiceBtn'); if (b) b.hidden = true;
+        if (!wasAuto) setVoice('offline', `Session ended (${d.reason}).`);
+      },
       onMessage: ({ role, message }) => { const m = message.replace(/\[[a-z][a-z ]{0,20}\]\s*/gi, '').trim(); if (role === 'user') setVoice('processing', `“${m}”`); else setVoice('speaking', m, 6000); },
       onError: (m) => { console.error(m); setVoice('attention', `Error: ${m}`); },
-      onModeChange: ({ mode }) => { if (!conversation) return; if (mode === 'speaking') setVoice('speaking', $('vText').innerHTML); else if ($('voice').dataset.state === 'speaking') setVoice('listening'); },
+      onModeChange: ({ mode }) => {
+        if (!conversation) return;
+        if (mode === 'speaking') { setVoice('speaking', $('vText').innerHTML); if (autoStop) autoStop.spoke = true; }
+        else {
+          if ($('voice').dataset.state === 'speaking') setVoice('listening');
+          // The agent just finished reading the lab summary: end the session a moment later.
+          if (autoStop?.spoke) { clearTimeout(autoStop.timer); autoStop.timer = setTimeout(() => stopVoice('Lab complete. Voice agent stopped.'), 1200); }
+        }
+      },
     });
   } catch (err) { console.error(err); conversation = null; setVoice('offline', /denied|permission/i.test(err.message) ? 'Microphone blocked. Allow it in the address bar, then try again.' : `Could not start: ${err.message}`); }
   finally { $('connectBtn').disabled = false; }
