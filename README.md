@@ -72,6 +72,9 @@ npm run dev            # open http://localhost:3000
 - **Any lab, same copilot:** drop in another procedure file (physics, chemistry, bio) to switch labs; later, upload a course's PDF handout and extract the steps.
 - **Readings straight from the meter:** connect a Bluetooth or USB multimeter so values flow in automatically, with voice for corrections and questions.
 - **More languages and a knowledge base:** Spanish works today; add more languages and an ElevenLabs knowledge base with each course's troubleshooting guide.
+- **A live TA dashboard:** every bench in the room on one screen, showing which step each student is on and who just hit a problem.
+- **Send the report to Canvas,** with the data table already filled in.
+- **See the bench:** read resistor color bands or spot a misplaced wire from a phone camera.
 - **First users:** students and TAs in SDSU's intro circuits lab sections. We'd measure time per lab and how many wiring mistakes get caught before the TA has to step in.
 
 ## Team
